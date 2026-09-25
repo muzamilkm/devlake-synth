@@ -1,0 +1,12 @@
+{
+  "name": "devlake-app",
+  "version": "1.0.0",
+  "description": "DevLake Express app",
+  "main": "app.js",
+  "scripts": {
+    "start": "node bin/www"
+  },
+  "dependencies": {
+    "express": "^4.18.2"
+  }
+}
