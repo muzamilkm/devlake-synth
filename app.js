@@ -1,6 +1,7 @@
 const express = require('express');
 const { createStore } = require('./store');
 const { createItemsRouter } = require('./routes/items');
+const openApiSpec = require('./openapi.json');
 const { createUserStore, createUsersRouter } = require('./users');
 const { notFoundHandler, errorHandler } = require('./errors');
 const { createRequestLogger } = require('./middleware/requestLogger');
@@ -17,6 +18,10 @@ app.get('/health', (req, res) => {
 
 app.get('/', (req, res) => {
   res.json({ message: 'Welcome to DevLake' });
+});
+
+app.get('/openapi.json', (req, res) => {
+  res.json(openApiSpec);
 });
 
 app.post('/auth/login', loginHandler);
