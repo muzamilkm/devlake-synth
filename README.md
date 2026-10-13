@@ -50,4 +50,5 @@ In-memory CRUD endpoints (data is lost on restart):
 | GET | `/items/:id` | Get one item |
 | PUT | `/items/:id` | Replace an item |
 | PATCH | `/items/:id` | Update `name` and/or `description` |
-| DELETE | `/items/:id` | Delete an item (204) |
+| DELETE | `/items/:id` | Soft delete an item (204). Deleted items are hidden from listings, `GET`, `PUT` and `PATCH` (404) |
+| POST | `/items/:id/restore` | Restore a soft-deleted item (200); 404 if unknown, 409 if the item is not deleted |
