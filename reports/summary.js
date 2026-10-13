@@ -25,6 +25,8 @@ function buildSummary(items) {
     totalValue: round2(totalValue),
     outOfStock,
     categoryCount: categories.size,
+    // Averages over priced items only (price > 0), whereas totalValue above
+    // includes every item, so unpriced items are excluded here but not there.
     averagePrice: prices.length ? round2(prices.reduce((a, b) => a + b, 0) / prices.length) : 0,
     minPrice: prices.length ? Math.min(...prices) : null,
     maxPrice: prices.length ? Math.max(...prices) : null,

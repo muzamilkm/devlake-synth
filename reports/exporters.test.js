@@ -29,6 +29,13 @@ test('csvField neutralizes spreadsheet formulas in strings', () => {
   assert.strictEqual(csvField('=a,b'), '"\'=a,b"');
 });
 
+test('csvField also guards plain strings that merely start with a formula character', () => {
+  // Known trade-off: the guard is prefix-based, so ordinary data like phone
+  // numbers or a lone dash is quoted with an apostrophe too.
+  assert.strictEqual(csvField('+1 555'), "'+1 555");
+  assert.strictEqual(csvField('-'), "'-");
+});
+
 test('csvField does not alter negative numbers', () => {
   assert.strictEqual(csvField(-5), '-5');
 });
