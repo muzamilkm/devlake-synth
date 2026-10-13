@@ -15,8 +15,16 @@ function createStore() {
       return item ? { ...item } : null;
     },
 
-    list({ offset = 0, limit } = {}) {
-      const all = Array.from(items.values(), (item) => ({ ...item }));
+    // Filters (all optional): case-insensitive name substring and an inclusive
+    // price range. Items without a price never match a price filter.
+    list({ offset = 0, limit, name, minPrice, maxPrice } = {}) {
+      const needle = name === undefined ? undefined : name.toLowerCase();
+      const matches = (item) =>
+        (needle === undefined || item.name.toLowerCase().includes(needle)) &&
+        (minPrice === undefined || (item.price !== undefined && item.price >= minPrice)) &&
+        (maxPrice === undefined || (item.price !== undefined && item.price <= maxPrice));
+      const all = [];
+      for (const item of items.values()) if (matches(item)) all.push({ ...item });
       return {
         total: all.length,
         items: limit === undefined ? all.slice(offset) : all.slice(offset, offset + limit),
