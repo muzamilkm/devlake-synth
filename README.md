@@ -27,14 +27,6 @@ To run the application:
 npm start
 ```
 
-### Configuration
-
-Configuration is read from environment variables and validated before the server starts. If a value is invalid, the server prints an error and exits with status 1 without listening.
-
-| Variable | Default | Rules |
-| --- | --- | --- |
-| `PORT` | `3000` | Optional. When set, must be an integer from 1 to 65535 |
-
 ### Test
 
 To run the test suite:

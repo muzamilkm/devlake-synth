@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert');
-const { validateItem, validateItemPatch, validateConfig } = require('./validate');
+const { validateItem, validateItemPatch } = require('./validate');
 
 const testCases = [
   { name: 'valid item', item: { name: 'Valid Item' }, expected: null },
@@ -58,25 +58,5 @@ const patchCases = [
 patchCases.forEach(({ name, patch, expected }) => {
   test(`validateItemPatch: ${name}`, () => {
     assert.strictEqual(validateItemPatch(patch), expected);
-  });
-});
-
-const configCases = [
-  { name: 'PORT unset', env: {}, expected: null },
-  { name: 'PORT empty', env: { PORT: '' }, expected: null },
-  { name: 'PORT valid', env: { PORT: '8080' }, expected: null },
-  { name: 'PORT lowest', env: { PORT: '1' }, expected: null },
-  { name: 'PORT highest', env: { PORT: '65535' }, expected: null },
-  { name: 'PORT zero', env: { PORT: '0' }, expected: 'PORT must be an integer between 1 and 65535 (got "0")' },
-  { name: 'PORT too high', env: { PORT: '65536' }, expected: 'PORT must be an integer between 1 and 65535 (got "65536")' },
-  { name: 'PORT not a number', env: { PORT: 'abc' }, expected: 'PORT must be an integer between 1 and 65535 (got "abc")' },
-  { name: 'PORT fractional', env: { PORT: '3000.5' }, expected: 'PORT must be an integer between 1 and 65535 (got "3000.5")' },
-  { name: 'PORT negative', env: { PORT: '-1' }, expected: 'PORT must be an integer between 1 and 65535 (got "-1")' },
-  { name: 'PORT with whitespace', env: { PORT: ' 3000' }, expected: 'PORT must be an integer between 1 and 65535 (got " 3000")' },
-];
-
-configCases.forEach(({ name, env, expected }) => {
-  test(`validateConfig: ${name}`, () => {
-    assert.strictEqual(validateConfig(env), expected);
   });
 });
