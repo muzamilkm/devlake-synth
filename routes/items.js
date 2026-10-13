@@ -1,5 +1,6 @@
 const express = require('express');
 const { validateItem, validateItemPatch } = require('../validate');
+const { allowMethods } = require('./methods');
 
 const DEFAULT_PAGE_SIZE = 20;
 const MAX_PAGE_SIZE = 100;
@@ -92,6 +93,9 @@ function createItemsRouter(store) {
     if (!store.remove(req.itemId)) return res.status(404).json({ error: 'Item not found' });
     res.status(204).end();
   });
+
+  router.all('/', allowMethods('GET', 'HEAD', 'POST'));
+  router.all('/:id', allowMethods('GET', 'HEAD', 'PUT', 'PATCH', 'DELETE'));
 
   return router;
 }
