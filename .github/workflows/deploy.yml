@@ -1,0 +1,30 @@
+name: deploy-production
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  deploy-production:
+    name: deploy-production
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - name: Deploy to production
+        env:
+          COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
+        run: |
+          echo "Deploying ${GITHUB_SHA} to production..."
+          sleep $((RANDOM % 90 + 30))
+          if [[ "$COMMIT_MESSAGE" == *"[deploy-fail]"* ]]; then
+            echo "Deploy failed: commit message contains [deploy-fail]"
+            exit 1
+          fi
+          echo "Deploy succeeded."

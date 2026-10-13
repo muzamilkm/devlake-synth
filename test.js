@@ -1,7 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert');
 const http = require('node:http');
-const app = require('./server');
+const app = require('./app');
 
 let server;
 
