@@ -440,9 +440,15 @@
       },
       "Health": {
         "type": "object",
-        "required": ["status"],
+        "required": ["status", "uptime"],
         "properties": {
-          "status": { "type": "string", "example": "ok" }
+          "status": { "type": "string", "example": "ok" },
+          "uptime": {
+            "type": "number",
+            "minimum": 0,
+            "description": "Seconds since the server process started.",
+            "example": 3600.25
+          }
         }
       },
       "Item": {

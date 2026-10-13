@@ -85,12 +85,14 @@ function walk(node, visit) {
   for (const value of Object.values(node)) walk(value, visit);
 }
 
-// Small subset of JSON Schema: enough for the object/array/integer/string shapes this spec uses.
+// Small subset of JSON Schema: enough for the object/array/integer/number/string shapes this spec uses.
 function matches(schema, value) {
   schema = deref(schema);
   switch (schema.type) {
     case 'integer':
       return Number.isInteger(value);
+    case 'number':
+      return typeof value === 'number' && Number.isFinite(value) && (schema.minimum === undefined || value >= schema.minimum);
     case 'string':
       return typeof value === 'string' && (schema.format !== 'date-time' || !Number.isNaN(Date.parse(value)));
     case 'array':
