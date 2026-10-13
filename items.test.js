@@ -205,3 +205,58 @@ test('ids are not reused after delete', async () => {
   const res = await call('POST', '/items', { name: 'b' });
   assert.strictEqual(res.body.id, 2);
 });
+
+async function seedForSort() {
+  await call('POST', '/items', { name: 'banana', price: 5 });
+  await call('POST', '/items', { name: 'cherry', price: 1.5 });
+  await call('POST', '/items', { name: 'apple', price: 10 });
+}
+
+const names = (res) => res.body.items.map((i) => i.name);
+
+test('GET /items sorts by name ascending and descending', async () => {
+  await seedForSort();
+  assert.deepStrictEqual(names(await call('GET', '/items?sort=name')), ['apple', 'banana', 'cherry']);
+  assert.deepStrictEqual(names(await call('GET', '/items?sort=-name')), ['cherry', 'banana', 'apple']);
+});
+
+test('GET /items sorts by price numerically', async () => {
+  await seedForSort();
+  assert.deepStrictEqual(names(await call('GET', '/items?sort=price')), ['cherry', 'banana', 'apple']);
+  assert.deepStrictEqual(names(await call('GET', '/items?sort=-price')), ['apple', 'banana', 'cherry']);
+});
+
+test('GET /items sorts by createdAt', async () => {
+  await seedForSort();
+  assert.deepStrictEqual(names(await call('GET', '/items?sort=createdAt')), ['banana', 'cherry', 'apple']);
+  assert.deepStrictEqual(names(await call('GET', '/items?sort=-createdAt')), ['apple', 'cherry', 'banana']);
+});
+
+test('GET /items sort puts items without price last', async () => {
+  await call('POST', '/items', { name: 'free' });
+  await call('POST', '/items', { name: 'paid', price: 3 });
+  assert.deepStrictEqual(names(await call('GET', '/items?sort=price')), ['paid', 'free']);
+  assert.deepStrictEqual(names(await call('GET', '/items?sort=-price')), ['paid', 'free']);
+});
+
+test('GET /items sorts before paginating and keeps sort in Link', async () => {
+  await seedForSort();
+  const res = await call('GET', '/items?sort=-name&limit=2');
+  assert.deepStrictEqual(names(res), ['cherry', 'banana']);
+  assert.match(res.headers.get('Link'), /sort=-name/);
+});
+
+test('GET /items rejects an invalid sort', async () => {
+  assert.strictEqual((await call('GET', '/items?sort=bogus')).status, 400);
+  assert.strictEqual((await call('GET', '/items?sort=--name')).status, 400);
+  assert.strictEqual((await call('GET', '/items?sort=name&sort=price')).status, 400);
+});
+
+test('items validate and store price', async () => {
+  assert.strictEqual((await call('POST', '/items', { name: 'a', price: 'x' })).status, 400);
+  assert.strictEqual((await call('POST', '/items', { name: 'a', price: -1 })).status, 400);
+  const ok = await call('POST', '/items', { name: 'a', price: 2 });
+  assert.strictEqual(ok.body.price, 2);
+  assert.strictEqual((await call('PATCH', '/items/1', { price: 4 })).body.price, 4);
+  assert.strictEqual((await call('PATCH', '/items/1', { price: 'x' })).status, 400);
+});

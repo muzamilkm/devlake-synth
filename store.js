@@ -15,8 +15,21 @@ function createStore() {
       return item ? { ...item } : null;
     },
 
-    list({ offset = 0, limit } = {}) {
+    // sort is { field, direction }; missing values go last, ties fall back to id order in the sort direction.
+    list({ offset = 0, limit, sort } = {}) {
       const all = Array.from(items.values(), (item) => ({ ...item }));
+      if (sort) {
+        const dir = sort.direction === 'desc' ? -1 : 1;
+        all.sort((a, b) => {
+          const av = a[sort.field];
+          const bv = b[sort.field];
+          if (av === undefined && bv === undefined) return a.id - b.id;
+          if (av === undefined) return 1;
+          if (bv === undefined) return -1;
+          if (av === bv) return (a.id - b.id) * dir;
+          return (av < bv ? -1 : 1) * dir;
+        });
+      }
       return {
         total: all.length,
         items: limit === undefined ? all.slice(offset) : all.slice(offset, offset + limit),

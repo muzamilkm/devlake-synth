@@ -3,12 +3,14 @@ const { validateItem, validateItemPatch } = require('../validate');
 
 const DEFAULT_PAGE_SIZE = 20;
 const MAX_PAGE_SIZE = 100;
+const SORT_FIELDS = ['name', 'price', 'createdAt'];
 
 // Only these fields are accepted from clients; anything else is ignored.
 function pick(body) {
   const data = {};
   if (typeof body.name === 'string') data.name = body.name.trim();
   if (body.description !== undefined) data.description = body.description;
+  if (body.price !== undefined) data.price = body.price;
   return data;
 }
 
@@ -33,9 +35,19 @@ function parseLimit(value) {
   return Math.min(Number(value), MAX_PAGE_SIZE);
 }
 
-// RFC 8288 Link header with next/prev relations; the page size is kept on both links.
-function buildLinkHeader(baseUrl, { offset, limit, total }) {
-  const pageLink = (pageOffset) => `<${baseUrl}?offset=${pageOffset}&limit=${limit}>`;
+// "field" sorts ascending, "-field" descending; omitted means store order.
+function parseSort(value) {
+  if (value === undefined) return undefined;
+  if (typeof value !== 'string') return null;
+  const direction = value.startsWith('-') ? 'desc' : 'asc';
+  const field = value.replace(/^-/, '');
+  return SORT_FIELDS.includes(field) ? { field, direction } : null;
+}
+
+// RFC 8288 Link header with next/prev relations; page size and sort are kept on both links.
+function buildLinkHeader(baseUrl, { offset, limit, total, sort }) {
+  const sortParam = sort ? `&sort=${encodeURIComponent(sort)}` : '';
+  const pageLink = (pageOffset) => `<${baseUrl}?offset=${pageOffset}&limit=${limit}${sortParam}>`;
   const links = [];
   if (offset + limit < total) links.push(`${pageLink(offset + limit)}; rel="next"`);
   if (offset > 0) links.push(`${pageLink(Math.max(0, offset - limit))}; rel="prev"`);
@@ -52,9 +64,13 @@ function createItemsRouter(store) {
     if (offset === null || limit === null) {
       return res.status(400).json({ error: 'offset must be a non-negative integer and limit a positive integer' });
     }
-    const page = store.list({ offset, limit });
+    const sort = parseSort(req.query.sort);
+    if (sort === null) {
+      return res.status(400).json({ error: 'sort must be one of: ' + SORT_FIELDS.flatMap((f) => [f, '-' + f]).join(', ') });
+    }
+    const page = store.list({ offset, limit, sort });
     res.set('X-Total-Count', String(page.total));
-    const link = buildLinkHeader(req.baseUrl, { offset, limit, total: page.total });
+    const link = buildLinkHeader(req.baseUrl, { offset, limit, total: page.total, sort: req.query.sort });
     if (link) res.set('Link', link);
     res.json(page);
   });

@@ -27,7 +27,7 @@ test('validateItem: valid description', () => {
 const patchCases = [
   { name: 'name only', patch: { name: 'x' }, expected: null },
   { name: 'description only', patch: { description: 'd' }, expected: null },
-  { name: 'empty patch', patch: {}, expected: 'At least one of name or description is required' },
+  { name: 'empty patch', patch: {}, expected: 'At least one of name, description or price is required' },
   { name: 'null patch', patch: null, expected: 'Item must be an object' },
   { name: 'array patch', patch: [], expected: 'Item must be an object' },
   { name: 'blank name', patch: { name: ' ' }, expected: 'Name field is required and must be a non-empty string' },
