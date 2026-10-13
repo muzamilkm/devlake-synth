@@ -7,18 +7,19 @@ function useApp() {
   let server;
   let base;
 
-  test.before(async () => {
+  // A fresh server per test, closed in afterEach so a failing test cannot
+  // leave the port open.
+  test.beforeEach(async () => {
+    app.locals.itemStore.clear();
     server = app.listen(0);
     await new Promise((resolve) => server.once('listening', resolve));
     base = 'http://localhost:' + server.address().port;
   });
 
-  test.after(async () => {
+  test.afterEach(async () => {
+    if (!server || !server.listening) return;
+    server.closeAllConnections();
     await new Promise((resolve) => server.close(resolve));
-  });
-
-  test.beforeEach(() => {
-    app.locals.itemStore.clear();
   });
 
   // `body` is JSON-encoded; `raw` is sent verbatim (for malformed payloads).

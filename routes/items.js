@@ -94,8 +94,8 @@ function createItemsRouter(store) {
     res.status(204).end();
   });
 
-  router.all('/', allowMethods('GET', 'HEAD', 'POST'));
-  router.all('/:id', allowMethods('GET', 'HEAD', 'PUT', 'PATCH', 'DELETE'));
+  router.all('/', allowMethods(router));
+  router.all('/:id', allowMethods(router));
 
   return router;
 }

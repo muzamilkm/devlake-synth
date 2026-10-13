@@ -9,12 +9,12 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok' });
 });
 
-app.all('/health', allowMethods('GET', 'HEAD'));
+app.all('/health', allowMethods(app));
 
 app.get('/', (req, res) => {
   res.json({ message: 'Welcome to DevLake' });
 });
-app.all('/', allowMethods('GET', 'HEAD'));
+app.all('/', allowMethods(app));
 
 const itemStore = createStore();
 app.locals.itemStore = itemStore;
