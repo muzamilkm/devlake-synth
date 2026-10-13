@@ -35,6 +35,10 @@ To run the test suite:
 npm test
 ```
 
+Unit tests live next to the code; end-to-end tests that boot the real app live in `integration/` (shared client in `integration/helpers.js`, sample data in `integration/fixtures.js`). New `*.test.js` files must be added to the `test` script in `package.json`.
+
+Unsupported methods on a known path return `405` with an `Allow` header, `OPTIONS` returns `204` with `Allow`, and request bodies over 100kb return `413`.
+
 ## Development
 
 The project includes validation utilities in `validate.js` with corresponding test coverage in `validate.test.js`.
