@@ -18,11 +18,14 @@ function registeredMethods(owner, catchAll) {
 // reports the allowed methods, anything else gets a 405 with an Allow header.
 // The list is read from the routes registered on `owner` when the request arrives.
 function allowMethods(owner) {
-  return (req, res) => {
+  const handler = (req, res) => {
     res.set('Allow', registeredMethods(owner, req.route).join(', '));
     if (req.method === 'OPTIONS') return res.status(204).end();
     res.status(405).json({ error: 'Method not allowed' });
   };
+  // Lets the OpenAPI test tell catch-alls apart from documented routes.
+  handler.isAllowMethods = true;
+  return handler;
 }
 
 module.exports = { allowMethods };

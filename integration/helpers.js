@@ -1,5 +1,15 @@
 const test = require('node:test');
+const crypto = require('node:crypto');
+
+process.env.JWT_SECRET = 'integration-test-secret';
 const app = require('../app');
+
+// POST /items requires a bearer token; every request here carries a valid one.
+function makeToken() {
+  const enc = (v) => Buffer.from(JSON.stringify(v)).toString('base64url');
+  const data = `${enc({ alg: 'HS256', typ: 'JWT' })}.${enc({ sub: 'tester' })}`;
+  return `${data}.${crypto.createHmac('sha256', process.env.JWT_SECRET).update(data).digest('base64url')}`;
+}
 
 // Boots the real app on an ephemeral port for the calling test file, wipes the
 // item store before every test, and returns a small JSON-aware HTTP client.
@@ -25,9 +35,10 @@ function useApp() {
   // `body` is JSON-encoded; `raw` is sent verbatim (for malformed payloads).
   async function request(method, path, { body, raw, headers = {} } = {}) {
     const payload = raw !== undefined ? raw : body !== undefined ? JSON.stringify(body) : undefined;
+    const withAuth = { Authorization: 'Bearer ' + makeToken(), ...headers };
     const res = await fetch(base + path, {
       method,
-      headers: payload !== undefined ? { 'Content-Type': 'application/json', ...headers } : headers,
+      headers: payload !== undefined ? { 'Content-Type': 'application/json', ...withAuth } : withAuth,
       body: payload,
     });
     const text = await res.text();

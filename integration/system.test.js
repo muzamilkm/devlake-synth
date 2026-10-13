@@ -76,7 +76,7 @@ test('malformed JSON returns a 400 on every write endpoint', async () => {
 test('oversized bodies return 413 instead of a 500', async () => {
   const res = await api.post('/items', oversizedBody);
   assert.strictEqual(res.status, 413);
-  assert.deepStrictEqual(res.body, { error: 'Payload too large' });
+  assert.deepStrictEqual(res.body, { error: 'Request body too large' });
 });
 
 test('a non-JSON content type is treated as an empty body', async () => {
