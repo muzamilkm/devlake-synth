@@ -1,6 +1,8 @@
 const test = require('node:test');
 const assert = require('node:assert');
+const express = require('express');
 const app = require('../app');
+const { createUsersRouter } = require('./router');
 const { verifyPassword } = require('./password');
 
 const PASSWORD = 'Str0ng!Pass';
@@ -89,6 +91,34 @@ test('concurrent registrations with the same email create one user', async () =>
   const statuses = results.map((r) => r.status).sort();
   assert.deepStrictEqual(statuses, [201, 409, 409, 409, 409]);
   assert.strictEqual(app.locals.userStore.count(), 1);
+});
+
+test('duplicate detection relies only on store.create', async () => {
+  const calls = [];
+  const store = {
+    create(user) {
+      calls.push(user.email);
+      return null;
+    },
+    has() {
+      throw new Error('router must not pre-check with store.has');
+    },
+  };
+  const stubApp = express().use('/users', createUsersRouter(store));
+  const stubServer = stubApp.listen(0);
+  await new Promise((resolve) => stubServer.once('listening', resolve));
+  try {
+    const res = await fetch('http://localhost:' + stubServer.address().port + '/users/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: 'Alice@Example.com', password: PASSWORD }),
+    });
+    assert.strictEqual(res.status, 409);
+    assert.deepStrictEqual(await res.json(), { error: 'Email is already registered' });
+    assert.deepStrictEqual(calls, ['alice@example.com']);
+  } finally {
+    await new Promise((resolve) => stubServer.close(resolve));
+  }
 });
 
 test('POST /users/register rejects invalid emails', async () => {
