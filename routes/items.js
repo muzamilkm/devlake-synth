@@ -1,10 +1,12 @@
 const express = require('express');
 const { validateItem, validateItemPatch } = require('../validate');
 
+const MAX_PAGE_SIZE = 100;
+
 // Only these fields are accepted from clients; anything else is ignored.
 function pick(body) {
   const data = {};
-  if (body.name !== undefined) data.name = body.name.trim();
+  if (typeof body.name === 'string') data.name = body.name.trim();
   if (body.description !== undefined) data.description = body.description;
   return data;
 }
@@ -23,6 +25,10 @@ function parseNonNegativeInt(value, fallback) {
   return Number(value);
 }
 
+function clampLimit(limit) {
+  return limit === undefined ? MAX_PAGE_SIZE : Math.min(limit, MAX_PAGE_SIZE);
+}
+
 function createItemsRouter(store) {
   const router = express.Router();
   router.use(express.json());
@@ -33,7 +39,7 @@ function createItemsRouter(store) {
     if (offset === null || limit === null) {
       return res.status(400).json({ error: 'offset and limit must be non-negative integers' });
     }
-    res.json(store.list({ offset, limit }));
+    res.json(store.list({ offset, limit: clampLimit(limit) }));
   });
 
   router.post('/', (req, res) => {

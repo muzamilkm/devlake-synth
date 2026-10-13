@@ -83,7 +83,29 @@ test('GET /items rejects bad pagination params', async () => {
   }
 });
 
-test('GET /items/:id returns the item', async () => {
+test('GET /items clamps limit to the max page size of 100', async () => {
+  for (let i = 0; i < 105; i++) app.locals.itemStore.create({ name: 'n' + i });
+  for (const q of ['', '?limit=1000', '?limit=100']) {
+    const res = await call('GET', '/items' + q);
+    assert.strictEqual(res.status, 200, q);
+    assert.strictEqual(res.body.total, 105, q);
+    assert.strictEqual(res.body.items.length, 100, q);
+  }
+  const small = await call('GET', '/items?limit=5');
+  assert.strictEqual(small.body.items.length, 5);
+});
+
+test('non-string name returns 400 instead of throwing', async () => {
+  await call('POST', '/items', { name: 'a' });
+  for (const name of [123, null, {}, [], true]) {
+    assert.strictEqual((await call('POST', '/items', { name })).status, 400, JSON.stringify(name));
+    assert.strictEqual((await call('PUT', '/items/1', { name })).status, 400, JSON.stringify(name));
+    assert.strictEqual((await call('PATCH', '/items/1', { name })).status, 400, JSON.stringify(name));
+  }
+  assert.strictEqual((await call('GET', '/items/1')).body.name, 'a');
+});
+
+test('GET /items/:id returns the item',async () => {
   await call('POST', '/items', { name: 'a' });
   const res = await call('GET', '/items/1');
   assert.strictEqual(res.status, 200);

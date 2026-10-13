@@ -45,7 +45,7 @@ In-memory CRUD endpoints (data is lost on restart):
 
 | Method | Path | Description |
 | --- | --- | --- |
-| GET | `/items?offset=&limit=` | List items (`{ total, items }`) |
+| GET | `/items?offset=&limit=` | List items (`{ total, items }`); `limit` is capped at 100 (also the default) |
 | POST | `/items` | Create an item (`name` required, `description` optional) |
 | GET | `/items/:id` | Get one item |
 | PUT | `/items/:id` | Replace an item |
