@@ -76,16 +76,50 @@ test('GET /items lists created items with pagination', async () => {
   assert.deepStrictEqual(page.body.items.map((i) => i.name), ['b']);
 });
 
+test('GET /items sets X-Total-Count to the total regardless of page', async () => {
+  assert.strictEqual((await call('GET', '/items')).headers.get('x-total-count'), '0');
+  for (let i = 0; i < 25; i++) app.locals.itemStore.create({ name: 'n' + i });
+  const res = await call('GET', '/items?offset=20&limit=2');
+  assert.strictEqual(res.headers.get('x-total-count'), '25');
+  assert.strictEqual(res.body.items.length, 2);
+});
+
+test('GET /items sets Link next/prev headers', async () => {
+  for (let i = 0; i < 25; i++) app.locals.itemStore.create({ name: 'n' + i });
+  const first = await call('GET', '/items?limit=10');
+  assert.strictEqual(first.headers.get('link'), '</items?offset=10&limit=10>; rel="next"');
+  const middle = await call('GET', '/items?offset=10&limit=10');
+  assert.strictEqual(
+    middle.headers.get('link'),
+    '</items?offset=20&limit=10>; rel="next", </items?offset=0&limit=10>; rel="prev"',
+  );
+  const last = await call('GET', '/items?offset=20&limit=10');
+  assert.strictEqual(last.headers.get('link'), '</items?offset=10&limit=10>; rel="prev"');
+});
+
+test('GET /items omits Link when everything fits on one page', async () => {
+  app.locals.itemStore.create({ name: 'a' });
+  const res = await call('GET', '/items');
+  assert.strictEqual(res.headers.get('link'), null);
+});
+
 test('GET /items rejects bad pagination params', async () => {
-  for (const q of ['limit=-1', 'offset=x', 'limit=1.5']) {
+  for (const q of ['limit=-1', 'limit=0', 'offset=x', 'limit=1.5']) {
     const res = await call('GET', '/items?' + q);
     assert.strictEqual(res.status, 400, q);
   }
 });
 
+test('GET /items defaults to a page size of 20', async () => {
+  for (let i = 0; i < 25; i++) app.locals.itemStore.create({ name: 'n' + i });
+  const res = await call('GET', '/items');
+  assert.strictEqual(res.body.total, 25);
+  assert.strictEqual(res.body.items.length, 20);
+});
+
 test('GET /items clamps limit to the max page size of 100', async () => {
   for (let i = 0; i < 105; i++) app.locals.itemStore.create({ name: 'n' + i });
-  for (const q of ['', '?limit=1000', '?limit=100']) {
+  for (const q of ['?limit=1000', '?limit=100']) {
     const res = await call('GET', '/items' + q);
     assert.strictEqual(res.status, 200, q);
     assert.strictEqual(res.body.total, 105, q);
