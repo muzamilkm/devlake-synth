@@ -216,6 +216,25 @@ test('POST and PUT accept a trimmed category and reject a blank one', async () =
   assert.strictEqual(replaced.body.category, 'food');
 });
 
+test('GET /items/categories returns distinct sorted categories', async () => {
+  assert.deepStrictEqual((await call('GET', '/items/categories')).body, { categories: [] });
+  await call('POST', '/items', { name: 'a', category: 'tools' });
+  await call('POST', '/items', { name: 'b', category: 'food' });
+  await call('POST', '/items', { name: 'c', category: 'tools' });
+  await call('POST', '/items', { name: 'd' });
+  const res = await call('GET', '/items/categories');
+  assert.strictEqual(res.status, 200);
+  assert.deepStrictEqual(res.body, { categories: ['food', 'tools'] });
+});
+
+test('GET /items/categories drops a category once no item uses it', async () => {
+  await call('POST', '/items', { name: 'a', category: 'tools' });
+  await call('PATCH', '/items/1', { category: 'food' });
+  assert.deepStrictEqual((await call('GET', '/items/categories')).body, { categories: ['food'] });
+  await call('DELETE', '/items/1');
+  assert.deepStrictEqual((await call('GET', '/items/categories')).body, { categories: [] });
+});
+
 test('PATCH /items/:id updates category on its own', async () => {
   await call('POST', '/items', { name: 'a', category: 'old' });
   const res = await call('PATCH', '/items/1', { category: ' new ' });

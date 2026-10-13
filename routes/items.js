@@ -67,6 +67,11 @@ function createItemsRouter(store) {
     res.status(201).location('/items/' + item.id).json(item);
   });
 
+  // Must be registered before '/:id' so that 'categories' is not parsed as an id.
+  router.get('/categories', (req, res) => {
+    res.json({ categories: store.categories() });
+  });
+
   router.get('/:id', parseId, (req, res) => {
     const item = store.get(req.itemId);
     if (!item) return res.status(404).json({ error: 'Item not found' });

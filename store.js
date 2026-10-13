@@ -23,6 +23,15 @@ function createStore() {
       };
     },
 
+    // Distinct, sorted categories of all items; items without a category are skipped.
+    categories() {
+      const distinct = new Set();
+      for (const item of items.values()) {
+        if (item.category !== undefined) distinct.add(item.category);
+      }
+      return Array.from(distinct).sort();
+    },
+
     // Replaces the mutable fields; id and createdAt are preserved.
     replace(id, data) {
       const existing = items.get(id);
