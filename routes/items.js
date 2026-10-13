@@ -9,6 +9,7 @@ function pick(body) {
   const data = {};
   if (typeof body.name === 'string') data.name = body.name.trim();
   if (body.description !== undefined) data.description = body.description;
+  if (body.price !== undefined) data.price = body.price;
   return data;
 }
 
