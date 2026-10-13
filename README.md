@@ -35,6 +35,23 @@ To run the test suite:
 npm test
 ```
 
+### Docker
+
+Requires Docker with the Compose plugin. Build and start the API in a container:
+
+```bash
+docker compose up --build
+```
+
+The API is served on `http://localhost:3000`. To use a different host port, set `PORT`, for example `PORT=8080 docker compose up`. Stop it with `docker compose down`.
+
+To build the image without Compose:
+
+```bash
+docker build -t devlake-synth .
+docker run --rm -p 3000:3000 devlake-synth
+```
+
 ## Development
 
 The project includes validation utilities in `validate.js` with corresponding test coverage in `validate.test.js`.
