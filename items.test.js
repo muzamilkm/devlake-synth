@@ -76,6 +76,14 @@ test('GET /items lists created items with pagination', async () => {
   assert.deepStrictEqual(page.body.items.map((i) => i.name), ['b']);
 });
 
+test('GET /items sets X-Total-Count to the total regardless of page', async () => {
+  assert.strictEqual((await call('GET', '/items')).headers.get('x-total-count'), '0');
+  for (let i = 0; i < 25; i++) app.locals.itemStore.create({ name: 'n' + i });
+  const res = await call('GET', '/items?offset=20&limit=2');
+  assert.strictEqual(res.headers.get('x-total-count'), '25');
+  assert.strictEqual(res.body.items.length, 2);
+});
+
 test('GET /items rejects bad pagination params', async () => {
   for (const q of ['limit=-1', 'limit=0', 'offset=x', 'limit=1.5']) {
     const res = await call('GET', '/items?' + q);

@@ -43,7 +43,9 @@ function createItemsRouter(store) {
     if (offset === null || limit === null) {
       return res.status(400).json({ error: 'offset must be a non-negative integer and limit a positive integer' });
     }
-    res.json(store.list({ offset, limit }));
+    const page = store.list({ offset, limit });
+    res.set('X-Total-Count', String(page.total));
+    res.json(page);
   });
 
   router.post('/', (req, res) => {
