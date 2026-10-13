@@ -50,7 +50,7 @@ In-memory CRUD endpoints (data is lost on restart):
 | Method | Path | Description |
 | --- | --- | --- |
 | GET | `/items?offset=&limit=` | List items (`{ total, items }`); `limit` defaults to 20 and is capped at 100. Response headers: `X-Total-Count` (total items) and `Link` (RFC 8288 `next`/`prev`, present when applicable) |
-| POST | `/items` | Create an item (`name` required, `description` optional). Requires `Authorization: Bearer <JWT>` (HS256, signed with `JWT_SECRET`); responds 401 for missing, malformed, expired or badly signed tokens |
+| POST | `/items` | Create an item (`name` required, `description` optional). Requires `Authorization: Bearer <JWT>` (HS256, signed with `JWT_SECRET`); responds 401 for missing, malformed, expired or badly signed tokens. The token's `role` claim (`admin`, `staff` or `customer`) must be `admin` or `staff`, otherwise 403 |
 | GET | `/items/:id` | Get one item |
 | PUT | `/items/:id` | Replace an item |
 | PATCH | `/items/:id` | Update `name` and/or `description` |
