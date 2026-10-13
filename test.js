@@ -31,6 +31,28 @@ test('GET /health returns 200 with status ok', async () => {
   });
 });
 
+test('GET /health reports uptime in seconds since process start', async () => {
+  const port = server.address().port;
+
+  return new Promise((resolve, reject) => {
+    http.get(`http://localhost:${port}/health`, (res) => {
+      let data = '';
+      res.on('data', chunk => { data += chunk; });
+      res.on('end', () => {
+        try {
+          const body = JSON.parse(data);
+          assert.strictEqual(typeof body.uptime, 'number', 'Expected uptime to be a number');
+          assert.ok(Math.abs(body.uptime - process.uptime()) < 5,
+            `Expected uptime close to process.uptime() (${process.uptime()}), got ${body.uptime}`);
+          resolve();
+        } catch (err) {
+          reject(err);
+        }
+      });
+    }).on('error', reject);
+  });
+});
+
 test('requests are logged with method, path and status', { timeout: 2000 }, async () => {
   const port = server.address().port;
   const originalLog = console.log;
