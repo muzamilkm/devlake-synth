@@ -1,0 +1,560 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "DevLake Synth API",
+    "version": "1.0.0",
+    "description": "In-memory CRUD API for items. Data is lost when the server restarts."
+  },
+  "servers": [
+    { "url": "/" }
+  ],
+  "tags": [
+    { "name": "System", "description": "Service status and metadata" },
+    { "name": "Items", "description": "Create, read, update and delete items" },
+    { "name": "Auth", "description": "Credential checks and bearer tokens" },
+    { "name": "Users", "description": "User registration and profiles" }
+  ],
+  "paths": {
+    "/": {
+      "get": {
+        "tags": ["System"],
+        "summary": "Welcome message",
+        "operationId": "getWelcome",
+        "responses": {
+          "200": {
+            "description": "Welcome message",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Welcome" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/health": {
+      "get": {
+        "tags": ["System"],
+        "summary": "Health check",
+        "operationId": "getHealth",
+        "responses": {
+          "200": {
+            "description": "Service is up",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Health" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/openapi.json": {
+      "get": {
+        "tags": ["System"],
+        "summary": "OpenAPI specification",
+        "description": "Returns this document.",
+        "operationId": "getOpenApiSpec",
+        "responses": {
+          "200": {
+            "description": "OpenAPI 3.0 document",
+            "content": {
+              "application/json": {
+                "schema": { "type": "object" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/items": {
+      "get": {
+        "tags": ["Items"],
+        "summary": "List items",
+        "description": "Returns a page of items. `limit` defaults to 20 and values above 100 are capped at 100. The `Link` header is only present when there is a next or previous page.",
+        "operationId": "listItems",
+        "parameters": [
+          { "$ref": "#/components/parameters/Offset" },
+          { "$ref": "#/components/parameters/Limit" },
+          { "$ref": "#/components/parameters/NameFilter" },
+          { "$ref": "#/components/parameters/MinPrice" },
+          { "$ref": "#/components/parameters/MaxPrice" },
+          { "$ref": "#/components/parameters/Sort" }
+        ],
+        "responses": {
+          "200": {
+            "description": "A page of items",
+            "headers": {
+              "X-Total-Count": {
+                "description": "Total number of items, regardless of the page requested",
+                "required": true,
+                "schema": { "type": "integer", "minimum": 0 }
+              },
+              "Link": {
+                "description": "RFC 8288 `next` and/or `prev` links that keep the same `limit`",
+                "schema": { "type": "string" }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ItemList" }
+              }
+            }
+          },
+          "400": {
+            "description": "`offset` is not a non-negative integer, `limit` is not a positive integer, `sort` is unknown, or a name/price filter is invalid",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": ["Items"],
+        "summary": "Create an item",
+        "description": "Unknown fields and a client-supplied `id` are ignored. `name` is trimmed before it is stored. Requires a bearer token.",
+        "operationId": "createItem",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/ItemInput" }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Item created",
+            "headers": {
+              "Location": {
+                "description": "URL of the new item",
+                "required": true,
+                "schema": { "type": "string", "example": "/items/1" }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Item" }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      }
+    },
+    "/items/{id}": {
+      "parameters": [
+        { "$ref": "#/components/parameters/ItemId" }
+      ],
+      "get": {
+        "tags": ["Items"],
+        "summary": "Get an item",
+        "operationId": "getItem",
+        "responses": {
+          "200": {
+            "description": "The item",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Item" }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/InvalidItemId" },
+          "404": { "$ref": "#/components/responses/ItemNotFound" }
+        }
+      },
+      "put": {
+        "tags": ["Items"],
+        "summary": "Replace an item",
+        "description": "Replaces `name` and `description`. Omitting `description` clears it. `id` and `createdAt` are kept.",
+        "operationId": "replaceItem",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/ItemInput" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The replaced item",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Item" }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "404": { "$ref": "#/components/responses/ItemNotFound" }
+        }
+      },
+      "patch": {
+        "tags": ["Items"],
+        "summary": "Update an item",
+        "description": "Updates only the fields provided. At least one of `name` or `description` is required.",
+        "operationId": "updateItem",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/ItemPatch" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The updated item",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Item" }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "404": { "$ref": "#/components/responses/ItemNotFound" }
+        }
+      },
+      "delete": {
+        "tags": ["Items"],
+        "summary": "Delete an item",
+        "operationId": "deleteItem",
+        "responses": {
+          "204": { "description": "Item deleted" },
+          "400": { "$ref": "#/components/responses/InvalidItemId" },
+          "404": { "$ref": "#/components/responses/ItemNotFound" }
+        }
+      }
+    },
+    "/auth/login": {
+      "post": {
+        "tags": ["Auth"],
+        "summary": "Log in",
+        "description": "Credentials are checked against no user store yet, so every well-formed request is currently rejected with `401`.",
+        "operationId": "login",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/LoginRequest" }
+            }
+          }
+        },
+        "responses": {
+          "401": {
+            "description": "Invalid credentials",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          },
+          "400": {
+            "description": "`username` or `password` is missing or empty",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/users/register": {
+      "post": {
+        "tags": ["Users"],
+        "summary": "Register a user",
+        "description": "Emails are trimmed and lowercased before they are stored. Passwords are stored as salted scrypt hashes and are never returned.",
+        "operationId": "registerUser",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/Registration" }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "User registered",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/User" }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed; `details` lists every unmet rule",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ValidationError" }
+              }
+            }
+          },
+          "409": {
+            "description": "Email is already registered",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/users/me": {
+      "patch": {
+        "tags": ["Users"],
+        "summary": "Update your profile",
+        "description": "Updates only the fields provided. The user is taken from the bearer token's `sub` claim, so only the caller's own profile can change. `bio` may be set to `null` to clear it.",
+        "operationId": "updateProfile",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/ProfilePatch" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The updated profile",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Profile" }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "description": "HS256 token signed with the server's `JWT_SECRET`. Expired or badly signed tokens are rejected."
+      }
+    },
+    "parameters": {
+      "NameFilter": {
+        "name": "name",
+        "in": "query",
+        "description": "Case-insensitive substring match on `name`",
+        "required": false,
+        "schema": { "type": "string" }
+      },
+      "MinPrice": {
+        "name": "minPrice",
+        "in": "query",
+        "description": "Inclusive lower bound on `price`. Items without a price are excluded when either bound is set.",
+        "required": false,
+        "schema": { "type": "number", "minimum": 0 }
+      },
+      "MaxPrice": {
+        "name": "maxPrice",
+        "in": "query",
+        "description": "Inclusive upper bound on `price`. Must not be less than `minPrice`.",
+        "required": false,
+        "schema": { "type": "number", "minimum": 0 }
+      },
+      "Sort": {
+        "name": "sort",
+        "in": "query",
+        "description": "Sort field, prefixed with `-` for descending. Items without a price sort last when sorting by `price`.",
+        "required": false,
+        "schema": { "type": "string", "enum": ["name", "-name", "price", "-price", "createdAt", "-createdAt"] }
+      },
+      "Offset": {
+        "name": "offset",
+        "in": "query",
+        "description": "Number of items to skip",
+        "required": false,
+        "schema": { "type": "integer", "minimum": 0, "default": 0 }
+      },
+      "Limit": {
+        "name": "limit",
+        "in": "query",
+        "description": "Page size. Defaults to 20 and is capped at 100.",
+        "required": false,
+        "schema": { "type": "integer", "minimum": 1, "default": 20 }
+      },
+      "ItemId": {
+        "name": "id",
+        "in": "path",
+        "description": "Item id",
+        "required": true,
+        "schema": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "responses": {
+      "Unauthorized": {
+        "description": "Missing, malformed, expired or badly signed bearer token",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/Error" }
+          }
+        }
+      },
+      "BadRequest": {
+        "description": "Invalid JSON body or failed validation",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/Error" }
+          }
+        }
+      },
+      "InvalidItemId": {
+        "description": "The id is not a positive integer",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/Error" }
+          }
+        }
+      },
+      "ItemNotFound": {
+        "description": "No item with that id",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/Error" }
+          }
+        }
+      }
+    },
+    "schemas": {
+      "Welcome": {
+        "type": "object",
+        "required": ["message"],
+        "properties": {
+          "message": { "type": "string", "example": "Welcome to DevLake" }
+        }
+      },
+      "Health": {
+        "type": "object",
+        "required": ["status"],
+        "properties": {
+          "status": { "type": "string", "example": "ok" }
+        }
+      },
+      "Item": {
+        "type": "object",
+        "required": ["id", "name", "createdAt", "updatedAt"],
+        "properties": {
+          "id": { "type": "integer", "minimum": 1, "example": 1 },
+          "name": { "type": "string", "example": "Widget" },
+          "description": { "type": "string", "example": "blue" },
+          "price": { "type": "number", "minimum": 0, "example": 9.99 },
+          "createdAt": { "type": "string", "format": "date-time" },
+          "updatedAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "ItemInput": {
+        "type": "object",
+        "required": ["name"],
+        "properties": {
+          "name": { "type": "string", "minLength": 1, "pattern": "\\S", "description": "Must contain at least one non-whitespace character" },
+          "description": { "type": "string" },
+          "price": { "type": "number", "minimum": 0 }
+        }
+      },
+      "ItemPatch": {
+        "type": "object",
+        "minProperties": 1,
+        "properties": {
+          "name": { "type": "string", "minLength": 1, "pattern": "\\S", "description": "Must contain at least one non-whitespace character" },
+          "description": { "type": "string" },
+          "price": { "type": "number", "minimum": 0 }
+        }
+      },
+      "LoginRequest": {
+        "type": "object",
+        "required": ["username", "password"],
+        "properties": {
+          "username": { "type": "string", "minLength": 1 },
+          "password": { "type": "string", "minLength": 1 }
+        }
+      },
+      "Registration": {
+        "type": "object",
+        "required": ["email", "password"],
+        "properties": {
+          "email": { "type": "string", "maxLength": 254, "example": "alice@example.com" },
+          "password": { "type": "string", "minLength": 8, "maxLength": 128, "format": "password" }
+        }
+      },
+      "User": {
+        "type": "object",
+        "required": ["id", "email", "createdAt"],
+        "properties": {
+          "id": { "type": "integer", "minimum": 1, "example": 1 },
+          "email": { "type": "string", "example": "alice@example.com" },
+          "createdAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "ProfilePatch": {
+        "type": "object",
+        "minProperties": 1,
+        "additionalProperties": false,
+        "properties": {
+          "displayName": { "type": "string", "minLength": 1, "maxLength": 50, "example": "Alice" },
+          "bio": { "type": "string", "maxLength": 280, "nullable": true, "example": "Backend engineer" }
+        }
+      },
+      "Profile": {
+        "type": "object",
+        "required": ["id", "displayName", "bio", "updatedAt"],
+        "properties": {
+          "id": { "type": "string", "example": "42" },
+          "displayName": { "type": "string", "nullable": true, "example": "Alice" },
+          "bio": { "type": "string", "nullable": true, "example": "Backend engineer" },
+          "updatedAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "ValidationError": {
+        "type": "object",
+        "required": ["error", "details"],
+        "properties": {
+          "error": { "type": "string", "example": "Validation failed" },
+          "details": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["field", "message"],
+              "properties": {
+                "field": { "type": "string", "example": "password" },
+                "message": { "type": "string", "example": "Password must contain a digit" }
+              }
+            }
+          }
+        }
+      },
+      "ItemList": {
+        "type": "object",
+        "required": ["total", "items"],
+        "properties": {
+          "total": { "type": "integer", "minimum": 0 },
+          "items": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/Item" }
+          }
+        }
+      },
+      "Error": {
+        "type": "object",
+        "required": ["error"],
+        "properties": {
+          "error": { "type": "string", "example": "Item not found" }
+        }
+      }
+    }
+  }
+}
