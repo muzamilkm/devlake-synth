@@ -6,11 +6,13 @@ const openApiSpec = require('./openapi.json');
 const { createUserStore, createUsersRouter } = require('./users');
 const { notFoundHandler, errorHandler } = require('./errors');
 const { createRequestLogger } = require('./middleware/requestLogger');
+const { createRateLimiter } = require('./middleware/rateLimit');
 const { loginHandler } = require('./users/login');
 
 const app = express();
 
 app.use(createRequestLogger());
+app.use(createRateLimiter({ limit: Number(process.env.RATE_LIMIT_MAX) || 100 }));
 app.use(express.json());
 
 app.get('/health', (req, res) => {
