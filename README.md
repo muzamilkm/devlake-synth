@@ -35,6 +35,10 @@ To run the test suite:
 npm test
 ```
 
+## Deployment
+
+The `deploy-production` workflow (`.github/workflows/deploy.yml`) runs on every push to `main`. It runs `npm test`, then fails the deploy if the head commit message contains the literal marker `[deploy-fail]`. Branch names and PR titles end up in merge commit subjects, so do not use that marker in branch names or PR titles that will be merged to `main`.
+
 ## Development
 
 The project includes validation utilities in `validate.js` with corresponding test coverage in `validate.test.js`.
