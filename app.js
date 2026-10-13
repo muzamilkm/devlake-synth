@@ -19,7 +19,7 @@ app.use(createRateLimiter({ limit: Number(process.env.RATE_LIMIT_MAX) || 100 }))
 app.use(express.json());
 
 app.get('/health', (req, res) => {
-  res.json({ status: 'ok' });
+  res.json({ status: 'ok', uptime: process.uptime() });
 });
 
 app.all('/health', allowMethods(app));
