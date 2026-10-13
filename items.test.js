@@ -207,6 +207,54 @@ test('DELETE /items/:id removes the item', async () => {
   assert.strictEqual((await call('DELETE', '/items/1')).status, 404);
 });
 
+test('DELETE /items/:id soft deletes: hidden from list and GET, counts exclude it', async () => {
+  await call('POST', '/items', { name: 'a' });
+  await call('POST', '/items', { name: 'b' });
+  await call('DELETE', '/items/1');
+  const list = await call('GET', '/items');
+  assert.strictEqual(list.body.total, 1);
+  assert.deepStrictEqual(list.body.items.map((i) => i.name), ['b']);
+  assert.strictEqual(list.headers.get('x-total-count'), '1');
+  assert.strictEqual((await call('GET', '/items/1')).status, 404);
+});
+
+test('deleted items cannot be modified via PUT or PATCH', async () => {
+  await call('POST', '/items', { name: 'a' });
+  await call('DELETE', '/items/1');
+  assert.strictEqual((await call('PUT', '/items/1', { name: 'x' })).status, 404);
+  assert.strictEqual((await call('PATCH', '/items/1', { name: 'x' })).status, 404);
+});
+
+test('POST /items/:id/restore brings a deleted item back', async () => {
+  await call('POST', '/items', { name: 'a', description: 'd' });
+  await call('DELETE', '/items/1');
+  const res = await call('POST', '/items/1/restore');
+  assert.strictEqual(res.status, 200);
+  assert.strictEqual(res.body.id, 1);
+  assert.strictEqual(res.body.name, 'a');
+  assert.strictEqual(res.body.deletedAt, undefined);
+  assert.strictEqual((await call('GET', '/items/1')).status, 200);
+  assert.strictEqual((await call('GET', '/items')).body.total, 1);
+});
+
+test('POST /items/:id/restore returns 404 for unknown id and 409 when not deleted', async () => {
+  await call('POST', '/items', { name: 'a' });
+  assert.strictEqual((await call('POST', '/items/9/restore')).status, 404);
+  assert.strictEqual((await call('POST', '/items/1/restore')).status, 409);
+});
+
+test('POST /items/:id/restore rejects invalid id', async () => {
+  assert.strictEqual((await call('POST', '/items/abc/restore')).status, 400);
+});
+
+test('a deleted item can be deleted again only after restore', async () => {
+  await call('POST', '/items', { name: 'a' });
+  await call('DELETE', '/items/1');
+  assert.strictEqual((await call('DELETE', '/items/1')).status, 404);
+  await call('POST', '/items/1/restore');
+  assert.strictEqual((await call('DELETE', '/items/1')).status, 204);
+});
+
 test('DELETE /items/:id rejects invalid id', async () => {
   assert.strictEqual((await call('DELETE', '/items/abc')).status, 400);
 });
