@@ -11,7 +11,7 @@ let base;
 // POST /items requires a bearer token; every request here carries a valid one.
 function makeToken() {
   const enc = (v) => Buffer.from(JSON.stringify(v)).toString('base64url');
-  const data = `${enc({ alg: 'HS256', typ: 'JWT' })}.${enc({ sub: 'tester' })}`;
+  const data = `${enc({ alg: 'HS256', typ: 'JWT' })}.${enc({ sub: 'tester', role: 'staff' })}`;
   return `${data}.${crypto.createHmac('sha256', process.env.JWT_SECRET).update(data).digest('base64url')}`;
 }
 
