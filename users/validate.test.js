@@ -97,10 +97,15 @@ test('validatePassword enforces each complexity rule', () => {
   }
 });
 
-test('validatePassword enforces the max length', () => {
+test('validatePassword accepts a password at exactly the max length', () => {
   const password = 'Aa1!'.repeat(MAX_PASSWORD_LENGTH / 4);
+  assert.strictEqual(password.length, MAX_PASSWORD_LENGTH);
   assert.deepStrictEqual(validatePassword(password), []);
-  assert.deepStrictEqual(validatePassword(password + 'x'), ['Password must be at most 128 characters']);
+});
+
+test('validatePassword rejects a password over the max length', () => {
+  const password = 'Aa1!'.repeat(MAX_PASSWORD_LENGTH / 4) + 'x';
+  assert.deepStrictEqual(validatePassword(password), ['Password must be at most 128 characters']);
 });
 
 test('validatePassword reports every unmet rule', () => {
