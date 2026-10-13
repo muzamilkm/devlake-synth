@@ -1,6 +1,7 @@
 const express = require('express');
 const { createStore } = require('./store');
 const { createItemsRouter } = require('./routes/items');
+const openApiSpec = require('./openapi.json');
 
 const app = express();
 
@@ -10,6 +11,10 @@ app.get('/health', (req, res) => {
 
 app.get('/', (req, res) => {
   res.json({ message: 'Welcome to DevLake' });
+});
+
+app.get('/openapi.json', (req, res) => {
+  res.json(openApiSpec);
 });
 
 const itemStore = createStore();
