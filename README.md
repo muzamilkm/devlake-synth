@@ -51,3 +51,11 @@ In-memory CRUD endpoints (data is lost on restart):
 | PUT | `/items/:id` | Replace an item |
 | PATCH | `/items/:id` | Update `name` and/or `description` |
 | DELETE | `/items/:id` | Delete an item (204) |
+
+## Error handling
+
+All errors are handled by the middleware in `errors.js` and returned as JSON `{ "error": "<message>" }`.
+
+- Unknown routes return `404`; malformed JSON returns `400`; oversized bodies return `413`.
+- Handlers can `next(new HttpError(status, message, details))` (or throw synchronously) to send a specific 4xx. `details`, if given, is included in the response for 4xx only.
+- Any other error is logged server-side and returned as `500`. For every 5xx the body is `{ "error": "Internal server error" }`, so internals are never leaked.
