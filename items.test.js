@@ -76,6 +76,44 @@ test('GET /items lists created items with pagination', async () => {
   assert.deepStrictEqual(page.body.items.map((i) => i.name), ['b']);
 });
 
+test('GET /items returns 200 on an empty store with pagination params', async () => {
+  const def = await call('GET', '/items');
+  assert.strictEqual(def.headers.get('link'), null);
+  for (const q of ['', '?offset=0&limit=20', '?offset=5&limit=2', '?limit=100']) {
+    const res = await call('GET', '/items' + q);
+    assert.strictEqual(res.status, 200, q);
+    assert.deepStrictEqual(res.body, { total: 0, items: [] }, q);
+    assert.strictEqual(res.headers.get('x-total-count'), '0', q);
+  }
+});
+
+test('GET /items returns 200 on an empty store after create-then-delete', async () => {
+  await call('POST', '/items', { name: 'a' });
+  assert.strictEqual((await call('DELETE', '/items/1')).status, 204);
+  for (const q of ['', '?offset=0&limit=20', '?offset=3&limit=1']) {
+    const res = await call('GET', '/items' + q);
+    assert.strictEqual(res.status, 200, q);
+    assert.deepStrictEqual(res.body, { total: 0, items: [] }, q);
+    assert.strictEqual(res.headers.get('x-total-count'), '0', q);
+  }
+});
+
+test('GET /items with offset beyond the end returns 200 with empty items', async () => {
+  for (let i = 0; i < 3; i++) app.locals.itemStore.create({ name: 'n' + i });
+  const res = await call('GET', '/items?offset=50&limit=2');
+  assert.strictEqual(res.status, 200);
+  assert.deepStrictEqual(res.body.items, []);
+  assert.strictEqual(res.body.total, 3);
+  assert.strictEqual(res.headers.get('x-total-count'), '3');
+});
+
+test('GET /items with offset beyond the end on an empty store returns 200', async () => {
+  const res = await call('GET', '/items?offset=50&limit=2');
+  assert.strictEqual(res.status, 200);
+  assert.deepStrictEqual(res.body, { total: 0, items: [] });
+  assert.strictEqual(res.headers.get('x-total-count'), '0');
+});
+
 test('GET /items sets X-Total-Count to the total regardless of page', async () => {
   assert.strictEqual((await call('GET', '/items')).headers.get('x-total-count'), '0');
   for (let i = 0; i < 25; i++) app.locals.itemStore.create({ name: 'n' + i });
