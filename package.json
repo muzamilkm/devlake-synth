@@ -5,7 +5,7 @@
   "main": "app.js",
   "scripts": {
     "start": "node bin/www",
-    "test": "node --test test.js validate.test.js store.test.js items.test.js items.auth.test.js middleware/requestLogger.test.js middleware/jwtAuth.test.js users/login.test.js users/password.test.js"
+    "test": "node --test test.js validate.test.js store.test.js items.test.js items.auth.test.js middleware/requestLogger.test.js middleware/jwtAuth.test.js users/login.test.js users/password.test.js users/passwordReset.test.js"
   },
   "dependencies": {
     "express": "^4.18.2"
