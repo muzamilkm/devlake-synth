@@ -1,5 +1,6 @@
 const express = require('express');
 const { validateItem, validateItemPatch } = require('../validate');
+const { jwtAuth } = require('../middleware/jwtAuth');
 
 const DEFAULT_PAGE_SIZE = 20;
 const MAX_PAGE_SIZE = 100;
@@ -9,6 +10,7 @@ function pick(body) {
   const data = {};
   if (typeof body.name === 'string') data.name = body.name.trim();
   if (body.description !== undefined) data.description = body.description;
+  if (body.price !== undefined) data.price = body.price;
   return data;
 }
 
@@ -33,9 +35,37 @@ function parseLimit(value) {
   return Math.min(Number(value), MAX_PAGE_SIZE);
 }
 
-// RFC 8288 Link header with next/prev relations; the page size is kept on both links.
-function buildLinkHeader(baseUrl, { offset, limit, total }) {
-  const pageLink = (pageOffset) => `<${baseUrl}?offset=${pageOffset}&limit=${limit}>`;
+// Non-negative decimal such as "5" or "9.99"; omitted means no bound.
+function parsePrice(value) {
+  if (value === undefined) return undefined;
+  if (typeof value !== 'string' || !/^\d+(\.\d+)?$/.test(value)) return null;
+  return Number(value);
+}
+
+// Returns { filters } or { error } for the name/minPrice/maxPrice query params.
+function parseFilters(query) {
+  const filters = {};
+  if (query.name !== undefined) {
+    if (typeof query.name !== 'string') return { error: 'name must be a single string' };
+    filters.name = query.name;
+  }
+  for (const key of ['minPrice', 'maxPrice']) {
+    const value = parsePrice(query[key]);
+    if (value === null) return { error: `${key} must be a non-negative number` };
+    if (value !== undefined) filters[key] = value;
+  }
+  if (filters.minPrice !== undefined && filters.maxPrice !== undefined && filters.minPrice > filters.maxPrice) {
+    return { error: 'minPrice must not be greater than maxPrice' };
+  }
+  return { filters };
+}
+
+// RFC 8288 Link header with next/prev relations; page size and filters are kept on both links.
+function buildLinkHeader(baseUrl, { offset, limit, total, filters }) {
+  const pageLink = (pageOffset) => {
+    const params = new URLSearchParams({ offset: pageOffset, limit, ...filters });
+    return `<${baseUrl}?${params}>`;
+  };
   const links = [];
   if (offset + limit < total) links.push(`${pageLink(offset + limit)}; rel="next"`);
   if (offset > 0) links.push(`${pageLink(Math.max(0, offset - limit))}; rel="prev"`);
@@ -52,14 +82,16 @@ function createItemsRouter(store) {
     if (offset === null || limit === null) {
       return res.status(400).json({ error: 'offset must be a non-negative integer and limit a positive integer' });
     }
-    const page = store.list({ offset, limit });
+    const { filters, error } = parseFilters(req.query);
+    if (error) return res.status(400).json({ error });
+    const page = store.list({ offset, limit, ...filters });
     res.set('X-Total-Count', String(page.total));
-    const link = buildLinkHeader(req.baseUrl, { offset, limit, total: page.total });
+    const link = buildLinkHeader(req.baseUrl, { offset, limit, total: page.total, filters });
     if (link) res.set('Link', link);
     res.json(page);
   });
 
-  router.post('/', (req, res) => {
+  router.post('/', jwtAuth, (req, res) => {
     const error = validateItem(req.body);
     if (error) return res.status(400).json({ error });
     const item = store.create(pick(req.body));
