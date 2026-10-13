@@ -33,6 +33,15 @@ function parseLimit(value) {
   return Math.min(Number(value), MAX_PAGE_SIZE);
 }
 
+// RFC 8288 Link header with next/prev relations; the page size is kept on both links.
+function buildLinkHeader(baseUrl, { offset, limit, total }) {
+  const pageLink = (pageOffset) => `<${baseUrl}?offset=${pageOffset}&limit=${limit}>`;
+  const links = [];
+  if (offset + limit < total) links.push(`${pageLink(offset + limit)}; rel="next"`);
+  if (offset > 0) links.push(`${pageLink(Math.max(0, offset - limit))}; rel="prev"`);
+  return links.join(', ');
+}
+
 function createItemsRouter(store) {
   const router = express.Router();
   router.use(express.json());
@@ -45,6 +54,8 @@ function createItemsRouter(store) {
     }
     const page = store.list({ offset, limit });
     res.set('X-Total-Count', String(page.total));
+    const link = buildLinkHeader(req.baseUrl, { offset, limit, total: page.total });
+    if (link) res.set('Link', link);
     res.json(page);
   });
 

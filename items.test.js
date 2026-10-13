@@ -84,6 +84,25 @@ test('GET /items sets X-Total-Count to the total regardless of page', async () =
   assert.strictEqual(res.body.items.length, 2);
 });
 
+test('GET /items sets Link next/prev headers', async () => {
+  for (let i = 0; i < 25; i++) app.locals.itemStore.create({ name: 'n' + i });
+  const first = await call('GET', '/items?limit=10');
+  assert.strictEqual(first.headers.get('link'), '</items?offset=10&limit=10>; rel="next"');
+  const middle = await call('GET', '/items?offset=10&limit=10');
+  assert.strictEqual(
+    middle.headers.get('link'),
+    '</items?offset=20&limit=10>; rel="next", </items?offset=0&limit=10>; rel="prev"',
+  );
+  const last = await call('GET', '/items?offset=20&limit=10');
+  assert.strictEqual(last.headers.get('link'), '</items?offset=10&limit=10>; rel="prev"');
+});
+
+test('GET /items omits Link when everything fits on one page', async () => {
+  app.locals.itemStore.create({ name: 'a' });
+  const res = await call('GET', '/items');
+  assert.strictEqual(res.headers.get('link'), null);
+});
+
 test('GET /items rejects bad pagination params', async () => {
   for (const q of ['limit=-1', 'limit=0', 'offset=x', 'limit=1.5']) {
     const res = await call('GET', '/items?' + q);
