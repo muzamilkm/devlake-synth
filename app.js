@@ -10,7 +10,7 @@ app.use(createRequestLogger());
 app.use(express.json());
 
 app.get('/health', (req, res) => {
-  res.json({ status: 'ok' });
+  res.json({ status: 'ok', uptime: process.uptime() });
 });
 
 app.get('/', (req, res) => {
