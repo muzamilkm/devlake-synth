@@ -54,6 +54,36 @@ test('list with offset beyond the end returns empty items and the full total', (
   assert.deepStrictEqual(store.list({ offset: 100 }), { total: 3, items: [] });
 });
 
+test('list filters by case-insensitive name substring', () => {
+  const store = createStore();
+  for (const name of ['Red Apple', 'green apple', 'Banana']) store.create({ name });
+  const page = store.list({ name: 'APPLE' });
+  assert.strictEqual(page.total, 2);
+  assert.deepStrictEqual(page.items.map((i) => i.name), ['Red Apple', 'green apple']);
+});
+
+test('list filters by inclusive price range and skips unpriced items', () => {
+  const store = createStore();
+  store.create({ name: 'free', price: 0 });
+  store.create({ name: 'cheap', price: 5 });
+  store.create({ name: 'mid', price: 10 });
+  store.create({ name: 'pricey', price: 50 });
+  store.create({ name: 'unpriced' });
+  const names = (opts) => store.list(opts).items.map((i) => i.name);
+  assert.deepStrictEqual(names({ minPrice: 5, maxPrice: 10 }), ['cheap', 'mid']);
+  assert.deepStrictEqual(names({ minPrice: 10 }), ['mid', 'pricey']);
+  assert.deepStrictEqual(names({ maxPrice: 5 }), ['free', 'cheap']);
+  assert.strictEqual(store.list().total, 5);
+});
+
+test('list applies filters before pagination', () => {
+  const store = createStore();
+  for (let i = 0; i < 6; i++) store.create({ name: (i % 2 ? 'odd' : 'even') + i, price: i });
+  const page = store.list({ name: 'odd', offset: 1, limit: 1 });
+  assert.strictEqual(page.total, 3);
+  assert.deepStrictEqual(page.items.map((i) => i.name), ['odd3']);
+});
+
 test('replace drops old fields but keeps id and createdAt', () => {
   const store = createStore();
   const a = store.create({ name: 'a', description: 'old' });

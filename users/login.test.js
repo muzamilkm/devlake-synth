@@ -1,0 +1,72 @@
+const test = require('node:test');
+const assert = require('node:assert');
+const app = require('../app');
+const { loginHandler } = require('./login');
+
+let server;
+let base;
+
+async function postLogin(body) {
+  const res = await fetch(base + '/auth/login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  return res.status;
+}
+
+test.before(async () => {
+  server = app.listen(0);
+  await new Promise((resolve) => server.once('listening', resolve));
+  base = 'http://localhost:' + server.address().port;
+});
+
+test.after(async () => {
+  await new Promise((resolve) => server.close(resolve));
+});
+
+test('POST /auth/login with an empty password returns 400 over HTTP', async () => {
+  assert.strictEqual(await postLogin({ username: 'alice', password: '' }), 400);
+});
+
+function run(body) {
+  const req = { body };
+  const result = { status: 200, body: undefined };
+  const res = {
+    status(code) {
+      result.status = code;
+      return this;
+    },
+    json(payload) {
+      result.body = payload;
+      return this;
+    },
+  };
+  loginHandler(req, res);
+  return result;
+}
+
+test('rejects an empty password with 400', () => {
+  const result = run({ username: 'alice', password: '' });
+  assert.strictEqual(result.status, 400);
+  assert.ok(result.body && typeof result.body.error === 'string');
+});
+
+test('rejects a missing password with 400', () => {
+  assert.strictEqual(run({ username: 'alice' }).status, 400);
+});
+
+test('rejects a non-string password with 400', () => {
+  assert.strictEqual(run({ username: 'alice', password: 0 }).status, 400);
+  assert.strictEqual(run({ username: 'alice', password: ['x'] }).status, 400);
+});
+
+test('rejects a missing or empty username with 400', () => {
+  assert.strictEqual(run({ password: 'secret' }).status, 400);
+  assert.strictEqual(run({ username: '', password: 'secret' }).status, 400);
+});
+
+test('a well-formed request is not rejected as bad input', () => {
+  // There is no user store yet, so credentials can never be verified.
+  assert.strictEqual(run({ username: 'alice', password: 'secret' }).status, 401);
+});
