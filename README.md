@@ -46,8 +46,9 @@ In-memory CRUD endpoints (data is lost on restart):
 | Method | Path | Description |
 | --- | --- | --- |
 | GET | `/items?offset=&limit=` | List items (`{ total, items }`); `limit` defaults to 20 and is capped at 100. Response headers: `X-Total-Count` (total items) and `Link` (RFC 8288 `next`/`prev`, present when applicable) |
-| POST | `/items` | Create an item (`name` required, `description` optional) |
+| POST | `/items` | Create an item (`name` required; `description` and `category` optional) |
+| GET | `/items/categories` | List distinct item categories (`{ categories }`, sorted; items without a category are skipped) |
 | GET | `/items/:id` | Get one item |
 | PUT | `/items/:id` | Replace an item |
-| PATCH | `/items/:id` | Update `name` and/or `description` |
+| PATCH | `/items/:id` | Update `name`, `description`, and/or `category` |
 | DELETE | `/items/:id` | Delete an item (204) |
