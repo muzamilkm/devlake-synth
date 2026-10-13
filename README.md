@@ -99,6 +99,20 @@ In-memory user registration (data is lost on restart). Code lives in `users/`.
 - Validation failures return 400 with `{ error: 'Validation failed', details: [{ field, message }] }`.
 - Passwords are stored as salted `scrypt` hashes (Node `crypto`); neither the password nor the hash is ever returned.
 
+## Inventory reports
+
+Pure functions over arrays of items, in `reports/`. Items may carry optional `category`, `price`, `quantity` and `reorderLevel`; missing or invalid numbers count as 0 and a missing category becomes `uncategorized` (categories are trimmed and lowercased).
+
+```js
+const { generateReport, exportReport } = require('./reports');
+generateReport('low-stock', items, { threshold: 5 });
+exportReport('categories', 'csv', items); // { contentType, filename, body }
+```
+
+- Report types: `summary`, `low-stock` (options `threshold`, default 10, and `category`; an item's own `reorderLevel` wins), `categories`.
+- Formats: `json` and `csv` (CRLF line endings; strings starting with `= + - @` are prefixed with `'` to block spreadsheet formula injection).
+- A low-stock CSV with no rows is an empty string.
+
 ## Error handling
 
 All errors are handled by the middleware in `errors.js` and returned as JSON `{ "error": "<message>" }`.
