@@ -2,10 +2,12 @@ const express = require('express');
 const { createStore } = require('./store');
 const { createItemsRouter } = require('./routes/items');
 const { createRequestLogger } = require('./middleware/requestLogger');
+const { createRateLimiter } = require('./middleware/rateLimit');
 
 const app = express();
 
 app.use(createRequestLogger());
+app.use(createRateLimiter());
 
 app.get('/health', (req, res) => {
   res.json({ status: 'ok' });
