@@ -31,6 +31,29 @@ test('list returns total and supports offset/limit', () => {
   assert.strictEqual(store.list({ offset: 10 }).items.length, 0);
 });
 
+test('list on an empty store returns zero total and no items', () => {
+  const store = createStore();
+  assert.deepStrictEqual(store.list(), { total: 0, items: [] });
+  assert.deepStrictEqual(store.list({ offset: 0, limit: 20 }), { total: 0, items: [] });
+  assert.deepStrictEqual(store.list({ offset: 5, limit: 20 }), { total: 0, items: [] });
+});
+
+test('list after create-then-delete returns zero total and no items', () => {
+  const store = createStore();
+  const a = store.create({ name: 'a' });
+  store.remove(a.id);
+  assert.deepStrictEqual(store.list(), { total: 0, items: [] });
+  assert.deepStrictEqual(store.list({ offset: 0, limit: 20 }), { total: 0, items: [] });
+});
+
+test('list with offset beyond the end returns empty items and the full total', () => {
+  const store = createStore();
+  for (let i = 0; i < 3; i++) store.create({ name: 'item' + i });
+  assert.deepStrictEqual(store.list({ offset: 3, limit: 2 }), { total: 3, items: [] });
+  assert.deepStrictEqual(store.list({ offset: 100, limit: 2 }), { total: 3, items: [] });
+  assert.deepStrictEqual(store.list({ offset: 100 }), { total: 3, items: [] });
+});
+
 test('replace drops old fields but keeps id and createdAt', () => {
   const store = createStore();
   const a = store.create({ name: 'a', description: 'old' });
