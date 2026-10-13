@@ -8,6 +8,9 @@ const { notFoundHandler, errorHandler } = require('./errors');
 const { createRequestLogger } = require('./middleware/requestLogger');
 const { createRateLimiter } = require('./middleware/rateLimit');
 const { loginHandler } = require('./users/login');
+const { createProfileStore } = require('./users/profileStore');
+const { createUpdateProfileHandler } = require('./users/profile');
+const { jwtAuth } = require('./middleware/jwtAuth');
 
 const app = express();
 
@@ -31,6 +34,10 @@ app.get('/openapi.json', (req, res) => {
 });
 
 app.post('/auth/login', loginHandler);
+
+const profileStore = createProfileStore();
+app.locals.profileStore = profileStore;
+app.patch('/users/me', jwtAuth, createUpdateProfileHandler(profileStore));
 
 const itemStore = createStore();
 app.locals.itemStore = itemStore;

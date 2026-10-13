@@ -5,7 +5,7 @@
   "main": "app.js",
   "scripts": {
     "start": "node bin/www",
-    "test": "RATE_LIMIT_MAX=100000 node --test test.js validate.test.js store.test.js items.test.js items.auth.test.js errors.test.js errors.integration.test.js middleware/requestLogger.test.js middleware/jwtAuth.test.js middleware/rateLimit.test.js users/login.test.js users/validate.test.js users/password.test.js users/store.test.js users/register.test.js openapi.test.js integration/system.test.js integration/items.test.js"
+    "test": "RATE_LIMIT_MAX=100000 node --test test.js validate.test.js store.test.js items.test.js items.auth.test.js errors.test.js errors.integration.test.js middleware/requestLogger.test.js middleware/jwtAuth.test.js middleware/rateLimit.test.js users/login.test.js users/validate.test.js users/password.test.js users/store.test.js users/register.test.js users/profileStore.test.js users/validateProfile.test.js users/profile.test.js openapi.test.js integration/system.test.js integration/items.test.js"
   },
   "dependencies": {
     "express": "^4.18.2"

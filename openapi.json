@@ -12,7 +12,7 @@
     { "name": "System", "description": "Service status and metadata" },
     { "name": "Items", "description": "Create, read, update and delete items" },
     { "name": "Auth", "description": "Credential checks and bearer tokens" },
-    { "name": "Users", "description": "User registration" }
+    { "name": "Users", "description": "User registration and profiles" }
   ],
   "paths": {
     "/": {
@@ -305,6 +305,35 @@
           }
         }
       }
+    },
+    "/users/me": {
+      "patch": {
+        "tags": ["Users"],
+        "summary": "Update your profile",
+        "description": "Updates only the fields provided. The user is taken from the bearer token's `sub` claim, so only the caller's own profile can change. `bio` may be set to `null` to clear it.",
+        "operationId": "updateProfile",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/ProfilePatch" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The updated profile",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Profile" }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      }
     }
   },
   "components": {
@@ -469,6 +498,25 @@
           "id": { "type": "integer", "minimum": 1, "example": 1 },
           "email": { "type": "string", "example": "alice@example.com" },
           "createdAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "ProfilePatch": {
+        "type": "object",
+        "minProperties": 1,
+        "additionalProperties": false,
+        "properties": {
+          "displayName": { "type": "string", "minLength": 1, "maxLength": 50, "example": "Alice" },
+          "bio": { "type": "string", "maxLength": 280, "nullable": true, "example": "Backend engineer" }
+        }
+      },
+      "Profile": {
+        "type": "object",
+        "required": ["id", "displayName", "bio", "updatedAt"],
+        "properties": {
+          "id": { "type": "string", "example": "42" },
+          "displayName": { "type": "string", "nullable": true, "example": "Alice" },
+          "bio": { "type": "string", "nullable": true, "example": "Backend engineer" },
+          "updatedAt": { "type": "string", "format": "date-time" }
         }
       },
       "ValidationError": {
