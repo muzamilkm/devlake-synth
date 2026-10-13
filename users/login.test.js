@@ -1,6 +1,33 @@
 const test = require('node:test');
 const assert = require('node:assert');
+const app = require('../app');
 const { loginHandler } = require('./login');
+
+let server;
+let base;
+
+async function postLogin(body) {
+  const res = await fetch(base + '/auth/login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  return res.status;
+}
+
+test.before(async () => {
+  server = app.listen(0);
+  await new Promise((resolve) => server.once('listening', resolve));
+  base = 'http://localhost:' + server.address().port;
+});
+
+test.after(async () => {
+  await new Promise((resolve) => server.close(resolve));
+});
+
+test('POST /auth/login with an empty password returns 400 over HTTP', async () => {
+  assert.strictEqual(await postLogin({ username: 'alice', password: '' }), 400);
+});
 
 function run(body) {
   const req = { body };
