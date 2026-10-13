@@ -1,3 +1,11 @@
+function validateCategory(category) {
+  if (category !== undefined && (typeof category !== 'string' || category.trim() === '')) {
+    return 'Category must be a non-empty string';
+  }
+
+  return null;
+}
+
 function validateItem(item) {
   if (!item || typeof item !== 'object') {
     return 'Item must be an object';
@@ -11,7 +19,7 @@ function validateItem(item) {
     return 'Description must be a string';
   }
 
-  return null;
+  return validateCategory(item.category);
 }
 
 // Partial updates: only fields that are present are validated.
@@ -20,19 +28,20 @@ function validateItemPatch(patch) {
     return 'Item must be an object';
   }
 
-  if (patch.name === undefined && patch.description === undefined) {
-    return 'At least one of name or description is required';
+  if (patch.name === undefined && patch.description === undefined && patch.category === undefined) {
+    return 'At least one of name, description, or category is required';
   }
 
   if (patch.name !== undefined) {
-    return validateItem({ name: patch.name, description: patch.description });
+    const error = validateItem({ name: patch.name, description: patch.description });
+    if (error) return error;
   }
 
-  if (typeof patch.description !== 'string') {
+  if (patch.description !== undefined && typeof patch.description !== 'string') {
     return 'Description must be a string';
   }
 
-  return null;
+  return validateCategory(patch.category);
 }
 
 module.exports = { validateItem, validateItemPatch };

@@ -205,3 +205,22 @@ test('ids are not reused after delete', async () => {
   const res = await call('POST', '/items', { name: 'b' });
   assert.strictEqual(res.body.id, 2);
 });
+
+test('POST and PUT accept a trimmed category and reject a blank one', async () => {
+  const created = await call('POST', '/items', { name: 'a', category: ' tools ' });
+  assert.strictEqual(created.status, 201);
+  assert.strictEqual(created.body.category, 'tools');
+  assert.strictEqual((await call('POST', '/items', { name: 'a', category: '  ' })).status, 400);
+  assert.strictEqual((await call('PUT', '/items/1', { name: 'a', category: 5 })).status, 400);
+  const replaced = await call('PUT', '/items/1', { name: 'b', category: 'food' });
+  assert.strictEqual(replaced.body.category, 'food');
+});
+
+test('PATCH /items/:id updates category on its own', async () => {
+  await call('POST', '/items', { name: 'a', category: 'old' });
+  const res = await call('PATCH', '/items/1', { category: ' new ' });
+  assert.strictEqual(res.status, 200);
+  assert.strictEqual(res.body.name, 'a');
+  assert.strictEqual(res.body.category, 'new');
+  assert.strictEqual((await call('PATCH', '/items/1', { category: '' })).status, 400);
+});
