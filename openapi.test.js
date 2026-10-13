@@ -1,5 +1,8 @@
 const test = require('node:test');
 const assert = require('node:assert');
+const crypto = require('node:crypto');
+
+process.env.JWT_SECRET = 'openapi-test-secret';
 const app = require('./app');
 const spec = require('./openapi.json');
 
@@ -8,10 +11,18 @@ const HTTP_METHODS = ['get', 'post', 'put', 'patch', 'delete'];
 let server;
 let base;
 
-async function call(method, path, body, raw) {
+function sign(payload) {
+  const enc = (v) => Buffer.from(JSON.stringify(v)).toString('base64url');
+  const data = `${enc({ alg: 'HS256', typ: 'JWT' })}.${enc(payload)}`;
+  return `${data}.${crypto.createHmac('sha256', process.env.JWT_SECRET).update(data).digest('base64url')}`;
+}
+
+async function call(method, path, body, raw, token) {
+  const headers = body !== undefined || raw !== undefined ? { 'Content-Type': 'application/json' } : {};
+  if (token) headers.Authorization = 'Bearer ' + token;
   const res = await fetch(base + path, {
     method,
-    headers: body !== undefined || raw !== undefined ? { 'Content-Type': 'application/json' } : {},
+    headers,
     body: raw !== undefined ? raw : body !== undefined ? JSON.stringify(body) : undefined,
   });
   const text = await res.text();
@@ -164,8 +175,12 @@ const cases = [
   { method: 'GET', url: '/items', template: '/items' },
   { method: 'GET', url: '/items?offset=-1', template: '/items' },
   { method: 'POST', url: '/items', template: '/items', body: { name: 'a' } },
-  { method: 'POST', url: '/items', template: '/items', body: {} },
-  { method: 'POST', url: '/items', template: '/items', raw: '{bad' },
+  { method: 'POST', url: '/items', template: '/items', body: { name: 'a' }, token: true },
+  { method: 'POST', url: '/items', template: '/items', body: {}, token: true },
+  { method: 'POST', url: '/items', template: '/items', raw: '{bad', token: true },
+  { method: 'POST', url: '/auth/login', template: '/auth/login', body: {} },
+  { method: 'POST', url: '/auth/login', template: '/auth/login', body: { username: 'u', password: 'p' } },
+  { method: 'POST', url: '/users/register', template: '/users/register', body: {} },
   { method: 'GET', url: '/items/1', template: '/items/{id}' },
   { method: 'GET', url: '/items/abc', template: '/items/{id}' },
   { method: 'GET', url: '/items/9', template: '/items/{id}' },
@@ -181,9 +196,9 @@ const cases = [
 ];
 
 test('real responses match the documented status codes, headers and bodies', async () => {
-  for (const { method, url, template, body, raw } of cases) {
+  for (const { method, url, template, body, raw, token } of cases) {
     const label = `${method} ${url}`;
-    const res = await call(method, url, body, raw);
+    const res = await call(method, url, body, raw, token ? sign({ sub: 'openapi-test' }) : undefined);
     const response = documentedResponse(method.toLowerCase(), template, res.status);
 
     for (const [name, header] of Object.entries(response.headers || {})) {

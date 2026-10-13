@@ -10,7 +10,9 @@
   ],
   "tags": [
     { "name": "System", "description": "Service status and metadata" },
-    { "name": "Items", "description": "Create, read, update and delete items" }
+    { "name": "Items", "description": "Create, read, update and delete items" },
+    { "name": "Auth", "description": "Credential checks and bearer tokens" },
+    { "name": "Users", "description": "User registration" }
   ],
   "paths": {
     "/": {
@@ -73,7 +75,11 @@
         "operationId": "listItems",
         "parameters": [
           { "$ref": "#/components/parameters/Offset" },
-          { "$ref": "#/components/parameters/Limit" }
+          { "$ref": "#/components/parameters/Limit" },
+          { "$ref": "#/components/parameters/NameFilter" },
+          { "$ref": "#/components/parameters/MinPrice" },
+          { "$ref": "#/components/parameters/MaxPrice" },
+          { "$ref": "#/components/parameters/Sort" }
         ],
         "responses": {
           "200": {
@@ -96,7 +102,7 @@
             }
           },
           "400": {
-            "description": "`offset` is not a non-negative integer or `limit` is not a positive integer",
+            "description": "`offset` is not a non-negative integer, `limit` is not a positive integer, `sort` is unknown, or a name/price filter is invalid",
             "content": {
               "application/json": {
                 "schema": { "$ref": "#/components/schemas/Error" }
@@ -108,8 +114,9 @@
       "post": {
         "tags": ["Items"],
         "summary": "Create an item",
-        "description": "Unknown fields and a client-supplied `id` are ignored. `name` is trimmed before it is stored.",
+        "description": "Unknown fields and a client-supplied `id` are ignored. `name` is trimmed before it is stored. Requires a bearer token.",
         "operationId": "createItem",
+        "security": [{ "bearerAuth": [] }],
         "requestBody": {
           "required": true,
           "content": {
@@ -134,7 +141,8 @@
               }
             }
           },
-          "400": { "$ref": "#/components/responses/BadRequest" }
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
         }
       }
     },
@@ -221,10 +229,122 @@
           "404": { "$ref": "#/components/responses/ItemNotFound" }
         }
       }
+    },
+    "/auth/login": {
+      "post": {
+        "tags": ["Auth"],
+        "summary": "Log in",
+        "description": "Credentials are checked against no user store yet, so every well-formed request is currently rejected with `401`.",
+        "operationId": "login",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/LoginRequest" }
+            }
+          }
+        },
+        "responses": {
+          "401": {
+            "description": "Invalid credentials",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          },
+          "400": {
+            "description": "`username` or `password` is missing or empty",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/users/register": {
+      "post": {
+        "tags": ["Users"],
+        "summary": "Register a user",
+        "description": "Emails are trimmed and lowercased before they are stored. Passwords are stored as salted scrypt hashes and are never returned.",
+        "operationId": "registerUser",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/Registration" }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "User registered",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/User" }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed; `details` lists every unmet rule",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ValidationError" }
+              }
+            }
+          },
+          "409": {
+            "description": "Email is already registered",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "description": "HS256 token signed with the server's `JWT_SECRET`. Expired or badly signed tokens are rejected."
+      }
+    },
     "parameters": {
+      "NameFilter": {
+        "name": "name",
+        "in": "query",
+        "description": "Case-insensitive substring match on `name`",
+        "required": false,
+        "schema": { "type": "string" }
+      },
+      "MinPrice": {
+        "name": "minPrice",
+        "in": "query",
+        "description": "Inclusive lower bound on `price`. Items without a price are excluded when either bound is set.",
+        "required": false,
+        "schema": { "type": "number", "minimum": 0 }
+      },
+      "MaxPrice": {
+        "name": "maxPrice",
+        "in": "query",
+        "description": "Inclusive upper bound on `price`. Must not be less than `minPrice`.",
+        "required": false,
+        "schema": { "type": "number", "minimum": 0 }
+      },
+      "Sort": {
+        "name": "sort",
+        "in": "query",
+        "description": "Sort field, prefixed with `-` for descending. Items without a price sort last when sorting by `price`.",
+        "required": false,
+        "schema": { "type": "string", "enum": ["name", "-name", "price", "-price", "createdAt", "-createdAt"] }
+      },
       "Offset": {
         "name": "offset",
         "in": "query",
@@ -248,6 +368,14 @@
       }
     },
     "responses": {
+      "Unauthorized": {
+        "description": "Missing, malformed, expired or badly signed bearer token",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/Error" }
+          }
+        }
+      },
       "BadRequest": {
         "description": "Invalid JSON body or failed validation",
         "content": {
@@ -295,6 +423,7 @@
           "id": { "type": "integer", "minimum": 1, "example": 1 },
           "name": { "type": "string", "example": "Widget" },
           "description": { "type": "string", "example": "blue" },
+          "price": { "type": "number", "minimum": 0, "example": 9.99 },
           "createdAt": { "type": "string", "format": "date-time" },
           "updatedAt": { "type": "string", "format": "date-time" }
         }
@@ -304,7 +433,8 @@
         "required": ["name"],
         "properties": {
           "name": { "type": "string", "minLength": 1, "pattern": "\\S", "description": "Must contain at least one non-whitespace character" },
-          "description": { "type": "string" }
+          "description": { "type": "string" },
+          "price": { "type": "number", "minimum": 0 }
         }
       },
       "ItemPatch": {
@@ -312,7 +442,51 @@
         "minProperties": 1,
         "properties": {
           "name": { "type": "string", "minLength": 1, "pattern": "\\S", "description": "Must contain at least one non-whitespace character" },
-          "description": { "type": "string" }
+          "description": { "type": "string" },
+          "price": { "type": "number", "minimum": 0 }
+        }
+      },
+      "LoginRequest": {
+        "type": "object",
+        "required": ["username", "password"],
+        "properties": {
+          "username": { "type": "string", "minLength": 1 },
+          "password": { "type": "string", "minLength": 1 }
+        }
+      },
+      "Registration": {
+        "type": "object",
+        "required": ["email", "password"],
+        "properties": {
+          "email": { "type": "string", "maxLength": 254, "example": "alice@example.com" },
+          "password": { "type": "string", "minLength": 8, "maxLength": 128, "format": "password" }
+        }
+      },
+      "User": {
+        "type": "object",
+        "required": ["id", "email", "createdAt"],
+        "properties": {
+          "id": { "type": "integer", "minimum": 1, "example": 1 },
+          "email": { "type": "string", "example": "alice@example.com" },
+          "createdAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "ValidationError": {
+        "type": "object",
+        "required": ["error", "details"],
+        "properties": {
+          "error": { "type": "string", "example": "Validation failed" },
+          "details": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["field", "message"],
+              "properties": {
+                "field": { "type": "string", "example": "password" },
+                "message": { "type": "string", "example": "Password must contain a digit" }
+              }
+            }
+          }
         }
       },
       "ItemList": {
