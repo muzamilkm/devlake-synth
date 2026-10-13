@@ -3,6 +3,9 @@ const { createStore } = require('./store');
 const { createItemsRouter } = require('./routes/items');
 const { createRequestLogger } = require('./middleware/requestLogger');
 const { loginHandler } = require('./users/login');
+const { createProfileStore } = require('./users/profileStore');
+const { createUpdateProfileHandler } = require('./users/profile');
+const { jwtAuth } = require('./middleware/jwtAuth');
 
 const app = express();
 
@@ -18,6 +21,10 @@ app.get('/', (req, res) => {
 });
 
 app.post('/auth/login', loginHandler);
+
+const profileStore = createProfileStore();
+app.locals.profileStore = profileStore;
+app.patch('/users/me', jwtAuth, createUpdateProfileHandler(profileStore));
 
 const itemStore = createStore();
 app.locals.itemStore = itemStore;
