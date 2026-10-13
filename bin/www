@@ -1,9 +1,16 @@
 #!/usr/bin/env node
 
 const app = require('../app');
+const { loadConfig } = require('../config');
 
-const port = process.env.PORT || 3000;
+let config;
+try {
+  config = loadConfig();
+} catch (err) {
+  console.error(err.message);
+  process.exit(1);
+}
 
-app.listen(port, () => {
-  console.log(`Server running on port ${port}`);
+app.listen(config.port, () => {
+  console.log(`Server running on port ${config.port}`);
 });
