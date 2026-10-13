@@ -146,6 +146,83 @@
         }
       }
     },
+    "/items/import": {
+      "post": {
+        "tags": ["Items"],
+        "summary": "Bulk create items from CSV",
+        "description": "The first row is a header with a required `name` column and an optional `description` column (case-insensitive, any order). Fields may be quoted per RFC 4180. Up to 1000 rows and 1 MB per upload. By default the import is all-or-nothing; with `partial=true` valid rows are created and invalid ones are reported in `errors`. Row 1 is the header.",
+        "operationId": "importItems",
+        "parameters": [
+          {
+            "name": "partial",
+            "in": "query",
+            "description": "When `true`, create the valid rows and report the invalid ones instead of rejecting the whole upload",
+            "required": false,
+            "schema": { "type": "boolean", "default": false }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "text/csv": {
+              "schema": { "type": "string", "example": "name,description\nWidget,Blue\n" }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Items created; `errors` lists rows that were skipped (only with `partial=true`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["total", "created", "failed", "errors", "items"],
+                  "properties": {
+                    "total": { "type": "integer" },
+                    "created": { "type": "integer" },
+                    "failed": { "type": "integer" },
+                    "errors": { "type": "array", "items": { "$ref": "#/components/schemas/RowError" } },
+                    "items": { "type": "array", "items": { "$ref": "#/components/schemas/Item" } }
+                  }
+                }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "413": {
+            "description": "Body is larger than 1 MB",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          },
+          "415": {
+            "description": "Content-Type is not `text/csv` or `application/csv`",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          },
+          "422": {
+            "description": "At least one row is invalid and `partial` is not `true`; nothing is created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["error", "errors"],
+                  "properties": {
+                    "error": { "type": "string" },
+                    "errors": { "type": "array", "items": { "$ref": "#/components/schemas/RowError" } }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/items/{id}": {
       "parameters": [
         { "$ref": "#/components/parameters/ItemId" }
@@ -553,6 +630,14 @@
         "required": ["error"],
         "properties": {
           "error": { "type": "string", "example": "Item not found" }
+        }
+      },
+      "RowError": {
+        "type": "object",
+        "required": ["row", "error"],
+        "properties": {
+          "row": { "type": "integer", "minimum": 1, "description": "1-based row number; row 1 is the header", "example": 3 },
+          "error": { "type": "string", "example": "price must be a non-negative number" }
         }
       }
     }

@@ -59,6 +59,17 @@ In-memory CRUD endpoints (data is lost on restart):
 | PUT | `/items/:id` | Replace an item |
 | PATCH | `/items/:id` | Update any of `name`, `description`, `price` |
 | DELETE | `/items/:id` | Delete an item (204) |
+| POST | `/items/import[?partial=true]` | Bulk create items from a CSV body (`Content-Type: text/csv`) |
+
+### CSV import
+
+The first row is a header with a required `name` column and an optional `description` column (case-insensitive, any order). Fields may be quoted per RFC 4180. Up to 1000 rows and 1 MB per upload.
+
+By default the import is all-or-nothing: if any row is invalid the response is `422` with `errors: [{ row, error }]` (row 1 is the header) and nothing is created. With `?partial=true` valid rows are created (`201`) and invalid ones are reported in `errors`. Header or syntax problems return `400`; a non-CSV content type returns `415`.
+
+```sh
+curl -X POST -H 'Content-Type: text/csv' --data-binary @fixtures/valid.csv localhost:3000/items/import
+```
 
 ## API documentation
 
