@@ -3,6 +3,8 @@ const { createStore } = require('./store');
 const { createItemsRouter } = require('./routes/items');
 const { createRequestLogger } = require('./middleware/requestLogger');
 const { loginHandler } = require('./users/login');
+const { createUserStore } = require('./users/userStore');
+const { createPasswordResetRouter } = require('./users/passwordReset');
 
 const app = express();
 
@@ -18,6 +20,10 @@ app.get('/', (req, res) => {
 });
 
 app.post('/auth/login', loginHandler);
+
+const userStore = createUserStore();
+app.locals.userStore = userStore;
+app.use('/users/password-reset', createPasswordResetRouter(userStore));
 
 const itemStore = createStore();
 app.locals.itemStore = itemStore;

@@ -109,6 +109,25 @@ test('confirm validates the new password without consuming the token', async () 
   assert.strictEqual((await post('/confirm', { token, password: 'brand-new-pass' })).status, 200);
 });
 
+test('the app mounts the reset flow at /users/password-reset', async () => {
+  const app = require('../app');
+  app.locals.userStore.add('bob@example.com', 'original-pass');
+  const appServer = app.listen(0);
+  await new Promise((resolve) => appServer.once('listening', resolve));
+  const url = 'http://localhost:' + appServer.address().port + '/users/password-reset';
+  const send = (path, body) =>
+    fetch(url + path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  try {
+    const { token } = await (await send('/request', { email: 'bob@example.com' })).json();
+    assert.strictEqual((await send('/confirm', { token, password: 'brand-new-pass' })).status, 200);
+    const hash = app.locals.userStore.findByEmail('bob@example.com').passwordHash;
+    assert.strictEqual(verifyPassword('brand-new-pass', hash), true);
+  } finally {
+    app.locals.userStore.clear();
+    await new Promise((resolve) => appServer.close(resolve));
+  }
+});
+
 test('requesting a new token invalidates the previous one', async () => {
   const first = await requestToken();
   const second = await requestToken();
