@@ -94,6 +94,15 @@ function createItemsRouter(store) {
     res.status(204).end();
   });
 
+  router.post('/:id/restore', parseId, (req, res) => {
+    if (!store.get(req.itemId, { includeDeleted: true })) {
+      return res.status(404).json({ error: 'Item not found' });
+    }
+    const item = store.restore(req.itemId);
+    if (!item) return res.status(409).json({ error: 'Item is not deleted' });
+    res.json(item);
+  });
+
   return router;
 }
 

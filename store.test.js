@@ -60,6 +60,46 @@ test('remove deletes and reports whether anything was removed', () => {
   assert.strictEqual(store.get(a.id), null);
 });
 
+test('remove is a soft delete: hidden from get/list but retrievable with includeDeleted', () => {
+  const store = createStore();
+  const a = store.create({ name: 'a' });
+  store.create({ name: 'b' });
+  store.remove(a.id);
+  assert.strictEqual(store.get(a.id), null);
+  assert.strictEqual(store.get(a.id, { includeDeleted: true }).name, 'a');
+  assert.ok(store.get(a.id, { includeDeleted: true }).deletedAt);
+  const page = store.list();
+  assert.strictEqual(page.total, 1);
+  assert.deepStrictEqual(page.items.map((i) => i.name), ['b']);
+});
+
+test('deleted items cannot be replaced or updated', () => {
+  const store = createStore();
+  const a = store.create({ name: 'a' });
+  store.remove(a.id);
+  assert.strictEqual(store.replace(a.id, { name: 'x' }), null);
+  assert.strictEqual(store.update(a.id, { name: 'x' }), null);
+  assert.strictEqual(store.get(a.id, { includeDeleted: true }).name, 'a');
+});
+
+test('restore brings back a deleted item and clears deletedAt', () => {
+  const store = createStore();
+  const a = store.create({ name: 'a' });
+  store.remove(a.id);
+  const restored = store.restore(a.id);
+  assert.strictEqual(restored.name, 'a');
+  assert.strictEqual(restored.deletedAt, undefined);
+  assert.strictEqual(store.get(a.id).id, a.id);
+  assert.strictEqual(store.list().total, 1);
+});
+
+test('restore returns null for missing or non-deleted items', () => {
+  const store = createStore();
+  const a = store.create({ name: 'a' });
+  assert.strictEqual(store.restore(a.id), null);
+  assert.strictEqual(store.restore(999), null);
+});
+
 test('clear empties the store and resets ids', () => {
   const store = createStore();
   store.create({ name: 'a' });
