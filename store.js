@@ -17,7 +17,8 @@ function createStore() {
 
     // Filters (all optional): case-insensitive name substring and an inclusive
     // price range. Items without a price never match a price filter.
-    list({ offset = 0, limit, name, minPrice, maxPrice } = {}) {
+    // sort is { field, direction }; missing values go last, ties fall back to id order in the sort direction.
+    list({ offset = 0, limit, name, minPrice, maxPrice, sort } = {}) {
       const needle = name === undefined ? undefined : name.toLowerCase();
       const matches = (item) =>
         (needle === undefined || item.name.toLowerCase().includes(needle)) &&
@@ -25,6 +26,18 @@ function createStore() {
         (maxPrice === undefined || (item.price !== undefined && item.price <= maxPrice));
       const all = [];
       for (const item of items.values()) if (matches(item)) all.push({ ...item });
+      if (sort) {
+        const dir = sort.direction === 'desc' ? -1 : 1;
+        all.sort((a, b) => {
+          const av = a[sort.field];
+          const bv = b[sort.field];
+          if (av === undefined && bv === undefined) return a.id - b.id;
+          if (av === undefined) return 1;
+          if (bv === undefined) return -1;
+          if (av === bv) return (a.id - b.id) * dir;
+          return (av < bv ? -1 : 1) * dir;
+        });
+      }
       return {
         total: all.length,
         items: limit === undefined ? all.slice(offset) : all.slice(offset, offset + limit),

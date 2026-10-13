@@ -49,7 +49,7 @@ In-memory CRUD endpoints (data is lost on restart):
 
 | Method | Path | Description |
 | --- | --- | --- |
-| GET | `/items?offset=&limit=&name=&minPrice=&maxPrice=` | List items (`{ total, items }`); `limit` defaults to 20 and is capped at 100. Optional filters: `name` (case-insensitive substring) and `minPrice`/`maxPrice` (inclusive; items without a price are excluded when either is set). `total` counts filtered items. Response headers: `X-Total-Count` (total matching items) and `Link` (RFC 8288 `next`/`prev`, present when applicable, preserving filters) |
+| GET | `/items?offset=&limit=&name=&minPrice=&maxPrice=&sort=` | List items (`{ total, items }`); `limit` defaults to 20 and is capped at 100. Optional filters: `name` (case-insensitive substring) and `minPrice`/`maxPrice` (inclusive; items without a price are excluded when either is set). `total` counts filtered items. `sort` is `name`, `price` or `createdAt`, prefix `-` for descending (invalid values return 400; items without a price sort last). Response headers: `X-Total-Count` (total matching items) and `Link` (RFC 8288 `next`/`prev`, present when applicable, preserving filters and sort) |
 | POST | `/items` | Create an item (`name` required; `description` and `price` (non-negative number) optional). Requires `Authorization: Bearer <JWT>` (HS256, signed with `JWT_SECRET`); responds 401 for missing, malformed, expired or badly signed tokens |
 | GET | `/items/:id` | Get one item |
 | PUT | `/items/:id` | Replace an item |

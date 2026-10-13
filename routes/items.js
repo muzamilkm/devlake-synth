@@ -4,6 +4,7 @@ const { jwtAuth } = require('../middleware/jwtAuth');
 
 const DEFAULT_PAGE_SIZE = 20;
 const MAX_PAGE_SIZE = 100;
+const SORT_FIELDS = ['name', 'price', 'createdAt'];
 
 // Only these fields are accepted from clients; anything else is ignored.
 function pick(body) {
@@ -35,6 +36,15 @@ function parseLimit(value) {
   return Math.min(Number(value), MAX_PAGE_SIZE);
 }
 
+// "field" sorts ascending, "-field" descending; omitted means store order.
+function parseSort(value) {
+  if (value === undefined) return undefined;
+  if (typeof value !== 'string') return null;
+  const direction = value.startsWith('-') ? 'desc' : 'asc';
+  const field = value.replace(/^-/, '');
+  return SORT_FIELDS.includes(field) ? { field, direction } : null;
+}
+
 // Non-negative decimal such as "5" or "9.99"; omitted means no bound.
 function parsePrice(value) {
   if (value === undefined) return undefined;
@@ -60,10 +70,11 @@ function parseFilters(query) {
   return { filters };
 }
 
-// RFC 8288 Link header with next/prev relations; page size and filters are kept on both links.
-function buildLinkHeader(baseUrl, { offset, limit, total, filters }) {
+// RFC 8288 Link header with next/prev relations; page size, filters and sort are kept on both links.
+function buildLinkHeader(baseUrl, { offset, limit, total, filters, sort }) {
   const pageLink = (pageOffset) => {
     const params = new URLSearchParams({ offset: pageOffset, limit, ...filters });
+    if (sort) params.set('sort', sort);
     return `<${baseUrl}?${params}>`;
   };
   const links = [];
@@ -82,11 +93,15 @@ function createItemsRouter(store) {
     if (offset === null || limit === null) {
       return res.status(400).json({ error: 'offset must be a non-negative integer and limit a positive integer' });
     }
+    const sort = parseSort(req.query.sort);
+    if (sort === null) {
+      return res.status(400).json({ error: 'sort must be one of: ' + SORT_FIELDS.flatMap((f) => [f, '-' + f]).join(', ') });
+    }
     const { filters, error } = parseFilters(req.query);
     if (error) return res.status(400).json({ error });
-    const page = store.list({ offset, limit, ...filters });
+    const page = store.list({ offset, limit, ...filters, sort });
     res.set('X-Total-Count', String(page.total));
-    const link = buildLinkHeader(req.baseUrl, { offset, limit, total: page.total, filters });
+    const link = buildLinkHeader(req.baseUrl, { offset, limit, total: page.total, filters, sort: req.query.sort });
     if (link) res.set('Link', link);
     res.json(page);
   });
