@@ -50,10 +50,25 @@ test('POST /items with an expired token returns 401', async () => {
   assert.strictEqual((await post(sign({ sub: 'u1', exp }))).status, 401);
 });
 
-test('POST /items with a valid token creates the item', async () => {
-  const res = await post(sign({ sub: 'u1' }));
-  assert.strictEqual(res.status, 201);
-  assert.strictEqual(res.body.name, 'a');
+test('POST /items with an admin or staff token creates the item', async () => {
+  for (const role of ['admin', 'staff']) {
+    app.locals.itemStore.clear();
+    const res = await post(sign({ sub: 'u1', role }));
+    assert.strictEqual(res.status, 201, role);
+    assert.strictEqual(res.body.name, 'a', role);
+  }
+});
+
+test('POST /items with a customer token returns 403 and creates nothing', async () => {
+  const res = await post(sign({ sub: 'u1', role: 'customer' }));
+  assert.strictEqual(res.status, 403);
+  assert.deepStrictEqual(res.body, { error: 'Forbidden' });
+  assert.strictEqual(app.locals.itemStore.list({ offset: 0, limit: 10 }).total, 0);
+});
+
+test('POST /items with a token that has no role or an unknown role returns 403', async () => {
+  assert.strictEqual((await post(sign({ sub: 'u1' }))).status, 403);
+  assert.strictEqual((await post(sign({ sub: 'u1', role: 'superuser' }))).status, 403);
 });
 
 test('GET /items stays public', async () => {
