@@ -35,4 +35,18 @@ function validateItemPatch(patch) {
   return null;
 }
 
-module.exports = { validateItem, validateItemPatch };
+// Startup configuration: unset values fall back to defaults, set values must be valid.
+function validateConfig(env) {
+  if (env.PORT === undefined || env.PORT === '') {
+    return null;
+  }
+
+  const port = Number(env.PORT);
+  if (!/^\d+$/.test(env.PORT) || port < 1 || port > 65535) {
+    return `PORT must be an integer between 1 and 65535 (got "${env.PORT}")`;
+  }
+
+  return null;
+}
+
+module.exports = { validateItem, validateItemPatch, validateConfig };
