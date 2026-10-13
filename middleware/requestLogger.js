@@ -1,4 +1,4 @@
-function createRequestLogger(log = console.log) {
+function createRequestLogger(log = (line) => console.log(line)) {
   return function requestLogger(req, res, next) {
     const start = process.hrtime.bigint();
 

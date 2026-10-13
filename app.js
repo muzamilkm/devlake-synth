@@ -1,8 +1,11 @@
 const express = require('express');
 const { createStore } = require('./store');
 const { createItemsRouter } = require('./routes/items');
+const { createRequestLogger } = require('./middleware/requestLogger');
 
 const app = express();
+
+app.use(createRequestLogger());
 
 app.get('/health', (req, res) => {
   res.json({ status: 'ok' });
