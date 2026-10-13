@@ -11,11 +11,15 @@ function validateItem(item) {
     return 'Description must be a string';
   }
 
-  if (item.price !== undefined && (typeof item.price !== 'number' || !Number.isFinite(item.price) || item.price < 0)) {
+  if (item.price !== undefined && !isValidPrice(item.price)) {
     return 'Price must be a non-negative number';
   }
 
   return null;
+}
+
+function isValidPrice(price) {
+  return typeof price === 'number' && Number.isFinite(price) && price >= 0;
 }
 
 // Partial updates: only fields that are present are validated.
@@ -36,8 +40,8 @@ function validateItemPatch(patch) {
     return 'Description must be a string';
   }
 
-  if (patch.price !== undefined) {
-    return validateItem({ name: 'x', price: patch.price });
+  if (patch.price !== undefined && !isValidPrice(patch.price)) {
+    return 'Price must be a non-negative number';
   }
 
   return null;

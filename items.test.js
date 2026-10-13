@@ -1,14 +1,26 @@
 const test = require('node:test');
 const assert = require('node:assert');
+const crypto = require('node:crypto');
+
+process.env.JWT_SECRET = 'items-test-secret';
 const app = require('./app');
 
 let server;
 let base;
 
+// POST /items requires a bearer token; every request here carries a valid one.
+function makeToken() {
+  const enc = (v) => Buffer.from(JSON.stringify(v)).toString('base64url');
+  const data = `${enc({ alg: 'HS256', typ: 'JWT' })}.${enc({ sub: 'tester' })}`;
+  return `${data}.${crypto.createHmac('sha256', process.env.JWT_SECRET).update(data).digest('base64url')}`;
+}
+
 async function call(method, path, body, raw) {
+  const headers = body !== undefined || raw !== undefined ? { 'Content-Type': 'application/json' } : {};
+  headers.Authorization = 'Bearer ' + makeToken();
   const res = await fetch(base + path, {
     method,
-    headers: body !== undefined || raw !== undefined ? { 'Content-Type': 'application/json' } : {},
+    headers,
     body: raw !== undefined ? raw : body !== undefined ? JSON.stringify(body) : undefined,
   });
   const text = await res.text();
@@ -76,6 +88,44 @@ test('GET /items lists created items with pagination', async () => {
   assert.deepStrictEqual(page.body.items.map((i) => i.name), ['b']);
 });
 
+test('GET /items returns 200 on an empty store with pagination params', async () => {
+  const def = await call('GET', '/items');
+  assert.strictEqual(def.headers.get('link'), null);
+  for (const q of ['', '?offset=0&limit=20', '?offset=5&limit=2', '?limit=100']) {
+    const res = await call('GET', '/items' + q);
+    assert.strictEqual(res.status, 200, q);
+    assert.deepStrictEqual(res.body, { total: 0, items: [] }, q);
+    assert.strictEqual(res.headers.get('x-total-count'), '0', q);
+  }
+});
+
+test('GET /items returns 200 on an empty store after create-then-delete', async () => {
+  await call('POST', '/items', { name: 'a' });
+  assert.strictEqual((await call('DELETE', '/items/1')).status, 204);
+  for (const q of ['', '?offset=0&limit=20', '?offset=3&limit=1']) {
+    const res = await call('GET', '/items' + q);
+    assert.strictEqual(res.status, 200, q);
+    assert.deepStrictEqual(res.body, { total: 0, items: [] }, q);
+    assert.strictEqual(res.headers.get('x-total-count'), '0', q);
+  }
+});
+
+test('GET /items with offset beyond the end returns 200 with empty items', async () => {
+  for (let i = 0; i < 3; i++) app.locals.itemStore.create({ name: 'n' + i });
+  const res = await call('GET', '/items?offset=50&limit=2');
+  assert.strictEqual(res.status, 200);
+  assert.deepStrictEqual(res.body.items, []);
+  assert.strictEqual(res.body.total, 3);
+  assert.strictEqual(res.headers.get('x-total-count'), '3');
+});
+
+test('GET /items with offset beyond the end on an empty store returns 200', async () => {
+  const res = await call('GET', '/items?offset=50&limit=2');
+  assert.strictEqual(res.status, 200);
+  assert.deepStrictEqual(res.body, { total: 0, items: [] });
+  assert.strictEqual(res.headers.get('x-total-count'), '0');
+});
+
 test('GET /items sets X-Total-Count to the total regardless of page', async () => {
   assert.strictEqual((await call('GET', '/items')).headers.get('x-total-count'), '0');
   for (let i = 0; i < 25; i++) app.locals.itemStore.create({ name: 'n' + i });
@@ -127,6 +177,87 @@ test('GET /items clamps limit to the max page size of 100', async () => {
   }
   const small = await call('GET', '/items?limit=5');
   assert.strictEqual(small.body.items.length, 5);
+});
+
+test('POST /items accepts a numeric price', async () => {
+  const res = await call('POST', '/items', { name: 'a', price: 9.99 });
+  assert.strictEqual(res.status, 201);
+  assert.strictEqual(res.body.price, 9.99);
+});
+
+test('items reject invalid prices', async () => {
+  await call('POST', '/items', { name: 'a', price: 1 });
+  for (const price of [-1, '10', null, {}, true]) {
+    const label = JSON.stringify(price);
+    assert.strictEqual((await call('POST', '/items', { name: 'b', price })).status, 400, label);
+    assert.strictEqual((await call('PUT', '/items/1', { name: 'b', price })).status, 400, label);
+    assert.strictEqual((await call('PATCH', '/items/1', { price })).status, 400, label);
+  }
+  assert.strictEqual((await call('GET', '/items/1')).body.price, 1);
+});
+
+test('PATCH /items/:id can update only the price', async () => {
+  await call('POST', '/items', { name: 'a', price: 1 });
+  const res = await call('PATCH', '/items/1', { price: 2.5 });
+  assert.strictEqual(res.status, 200);
+  assert.strictEqual(res.body.name, 'a');
+  assert.strictEqual(res.body.price, 2.5);
+});
+
+async function seedPricedItems() {
+  const seed = [
+    ['Red Apple', 1],
+    ['Green Apple', 2],
+    ['Banana', 3],
+    ['Pineapple', 8],
+    ['Mystery apple', undefined],
+  ];
+  for (const [name, price] of seed) app.locals.itemStore.create(price === undefined ? { name } : { name, price });
+}
+
+const names = (res) => res.body.items.map((i) => i.name);
+
+test('GET /items?name= filters by case-insensitive substring', async () => {
+  await seedPricedItems();
+  const res = await call('GET', '/items?name=APPLE');
+  assert.strictEqual(res.status, 200);
+  assert.deepStrictEqual(names(res), ['Red Apple', 'Green Apple', 'Pineapple', 'Mystery apple']);
+  assert.strictEqual(res.body.total, 4);
+  assert.strictEqual(res.headers.get('x-total-count'), '4');
+  assert.deepStrictEqual(names(await call('GET', '/items?name=kiwi')), []);
+});
+
+test('GET /items filters by inclusive minPrice/maxPrice', async () => {
+  await seedPricedItems();
+  assert.deepStrictEqual(names(await call('GET', '/items?minPrice=2&maxPrice=3')), ['Green Apple', 'Banana']);
+  assert.deepStrictEqual(names(await call('GET', '/items?minPrice=2.5')), ['Banana', 'Pineapple']);
+  assert.deepStrictEqual(names(await call('GET', '/items?maxPrice=1')), ['Red Apple']);
+});
+
+test('GET /items combines name and price filters', async () => {
+  await seedPricedItems();
+  const res = await call('GET', '/items?name=apple&maxPrice=5');
+  assert.deepStrictEqual(names(res), ['Red Apple', 'Green Apple']);
+  assert.strictEqual(res.body.total, 2);
+});
+
+test('GET /items keeps filters in Link headers', async () => {
+  for (let i = 0; i < 5; i++) app.locals.itemStore.create({ name: 'apple' + i, price: i });
+  app.locals.itemStore.create({ name: 'pear', price: 1 });
+  const res = await call('GET', '/items?name=apple&minPrice=1&offset=1&limit=2');
+  assert.strictEqual(res.body.total, 4);
+  assert.strictEqual(
+    res.headers.get('link'),
+    '</items?offset=3&limit=2&name=apple&minPrice=1>; rel="next", </items?offset=0&limit=2&name=apple&minPrice=1>; rel="prev"',
+  );
+});
+
+test('GET /items rejects bad price filters', async () => {
+  for (const q of ['minPrice=x', 'maxPrice=-1', 'minPrice=', 'maxPrice=1e3', 'minPrice=5&maxPrice=2']) {
+    const res = await call('GET', '/items?' + q);
+    assert.strictEqual(res.status, 400, q);
+    assert.ok(res.body.error, q);
+  }
 });
 
 test('non-string name returns 400 instead of throwing', async () => {
@@ -211,8 +342,6 @@ async function seedForSort() {
   await call('POST', '/items', { name: 'cherry', price: 1.5 });
   await call('POST', '/items', { name: 'apple', price: 10 });
 }
-
-const names = (res) => res.body.items.map((i) => i.name);
 
 test('GET /items sorts by name ascending and descending', async () => {
   await seedForSort();

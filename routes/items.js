@@ -1,5 +1,6 @@
 const express = require('express');
 const { validateItem, validateItemPatch } = require('../validate');
+const { jwtAuth } = require('../middleware/jwtAuth');
 
 const DEFAULT_PAGE_SIZE = 20;
 const MAX_PAGE_SIZE = 100;
@@ -44,10 +45,38 @@ function parseSort(value) {
   return SORT_FIELDS.includes(field) ? { field, direction } : null;
 }
 
-// RFC 8288 Link header with next/prev relations; page size and sort are kept on both links.
-function buildLinkHeader(baseUrl, { offset, limit, total, sort }) {
-  const sortParam = sort ? `&sort=${encodeURIComponent(sort)}` : '';
-  const pageLink = (pageOffset) => `<${baseUrl}?offset=${pageOffset}&limit=${limit}${sortParam}>`;
+// Non-negative decimal such as "5" or "9.99"; omitted means no bound.
+function parsePrice(value) {
+  if (value === undefined) return undefined;
+  if (typeof value !== 'string' || !/^\d+(\.\d+)?$/.test(value)) return null;
+  return Number(value);
+}
+
+// Returns { filters } or { error } for the name/minPrice/maxPrice query params.
+function parseFilters(query) {
+  const filters = {};
+  if (query.name !== undefined) {
+    if (typeof query.name !== 'string') return { error: 'name must be a single string' };
+    filters.name = query.name;
+  }
+  for (const key of ['minPrice', 'maxPrice']) {
+    const value = parsePrice(query[key]);
+    if (value === null) return { error: `${key} must be a non-negative number` };
+    if (value !== undefined) filters[key] = value;
+  }
+  if (filters.minPrice !== undefined && filters.maxPrice !== undefined && filters.minPrice > filters.maxPrice) {
+    return { error: 'minPrice must not be greater than maxPrice' };
+  }
+  return { filters };
+}
+
+// RFC 8288 Link header with next/prev relations; page size, filters and sort are kept on both links.
+function buildLinkHeader(baseUrl, { offset, limit, total, filters, sort }) {
+  const pageLink = (pageOffset) => {
+    const params = new URLSearchParams({ offset: pageOffset, limit, ...filters });
+    if (sort) params.set('sort', sort);
+    return `<${baseUrl}?${params}>`;
+  };
   const links = [];
   if (offset + limit < total) links.push(`${pageLink(offset + limit)}; rel="next"`);
   if (offset > 0) links.push(`${pageLink(Math.max(0, offset - limit))}; rel="prev"`);
@@ -68,14 +97,16 @@ function createItemsRouter(store) {
     if (sort === null) {
       return res.status(400).json({ error: 'sort must be one of: ' + SORT_FIELDS.flatMap((f) => [f, '-' + f]).join(', ') });
     }
-    const page = store.list({ offset, limit, sort });
+    const { filters, error } = parseFilters(req.query);
+    if (error) return res.status(400).json({ error });
+    const page = store.list({ offset, limit, ...filters, sort });
     res.set('X-Total-Count', String(page.total));
-    const link = buildLinkHeader(req.baseUrl, { offset, limit, total: page.total, sort: req.query.sort });
+    const link = buildLinkHeader(req.baseUrl, { offset, limit, total: page.total, filters, sort: req.query.sort });
     if (link) res.set('Link', link);
     res.json(page);
   });
 
-  router.post('/', (req, res) => {
+  router.post('/', jwtAuth, (req, res) => {
     const error = validateItem(req.body);
     if (error) return res.status(400).json({ error });
     const item = store.create(pick(req.body));
