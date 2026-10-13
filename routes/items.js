@@ -1,5 +1,6 @@
 const express = require('express');
 const { validateItem, validateItemPatch } = require('../validate');
+const { jwtAuth } = require('../middleware/jwtAuth');
 
 const DEFAULT_PAGE_SIZE = 20;
 const MAX_PAGE_SIZE = 100;
@@ -59,7 +60,7 @@ function createItemsRouter(store) {
     res.json(page);
   });
 
-  router.post('/', (req, res) => {
+  router.post('/', jwtAuth, (req, res) => {
     const error = validateItem(req.body);
     if (error) return res.status(400).json({ error });
     const item = store.create(pick(req.body));
