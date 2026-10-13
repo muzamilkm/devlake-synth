@@ -15,7 +15,10 @@ test('GET / returns the welcome message', async () => {
 test('GET /health returns ok', async () => {
   const res = await api.get('/health');
   assert.strictEqual(res.status, 200);
-  assert.deepStrictEqual(res.body, { status: 'ok' });
+  assert.deepStrictEqual(Object.keys(res.body).sort(), ['status', 'uptime']);
+  assert.strictEqual(res.body.status, 'ok');
+  assert.strictEqual(typeof res.body.uptime, 'number');
+  assert.ok(res.body.uptime >= 0, `Expected a non-negative uptime, got ${res.body.uptime}`);
 });
 
 test('HEAD /health succeeds without a body', async () => {
