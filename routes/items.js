@@ -1,6 +1,7 @@
 const express = require('express');
 const { validateItem, validateItemPatch } = require('../validate');
 
+const DEFAULT_PAGE_SIZE = 20;
 const MAX_PAGE_SIZE = 100;
 
 // Only these fields are accepted from clients; anything else is ignored.
@@ -25,8 +26,11 @@ function parseNonNegativeInt(value, fallback) {
   return Number(value);
 }
 
-function clampLimit(limit) {
-  return limit === undefined ? MAX_PAGE_SIZE : Math.min(limit, MAX_PAGE_SIZE);
+// Positive integer; omitted means the default page size, larger values are capped.
+function parseLimit(value) {
+  if (value === undefined) return DEFAULT_PAGE_SIZE;
+  if (!/^[1-9]\d*$/.test(value)) return null;
+  return Math.min(Number(value), MAX_PAGE_SIZE);
 }
 
 function createItemsRouter(store) {
@@ -35,11 +39,11 @@ function createItemsRouter(store) {
 
   router.get('/', (req, res) => {
     const offset = parseNonNegativeInt(req.query.offset, 0);
-    const limit = parseNonNegativeInt(req.query.limit, undefined);
+    const limit = parseLimit(req.query.limit);
     if (offset === null || limit === null) {
-      return res.status(400).json({ error: 'offset and limit must be non-negative integers' });
+      return res.status(400).json({ error: 'offset must be a non-negative integer and limit a positive integer' });
     }
-    res.json(store.list({ offset, limit: clampLimit(limit) }));
+    res.json(store.list({ offset, limit }));
   });
 
   router.post('/', (req, res) => {
