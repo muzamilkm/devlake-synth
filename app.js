@@ -1,7 +1,6 @@
 const express = require('express');
 const { createStore } = require('./store');
 const { createItemsRouter } = require('./routes/items');
-const { createImportRouter } = require('./routes/import');
 const { allowMethods } = require('./routes/methods');
 const openApiSpec = require('./openapi.json');
 const { createUserStore, createUsersRouter } = require('./users');
@@ -42,7 +41,6 @@ app.patch('/users/me', jwtAuth, createUpdateProfileHandler(profileStore));
 
 const itemStore = createStore();
 app.locals.itemStore = itemStore;
-app.use('/items/import', createImportRouter(itemStore));
 app.use('/items', createItemsRouter(itemStore));
 
 const userStore = createUserStore();

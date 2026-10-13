@@ -10,10 +10,6 @@ function createStore() {
       return { ...item };
     },
 
-    createMany(list) {
-      return list.map((data) => this.create(data));
-    },
-
     get(id) {
       const item = items.get(id);
       return item ? { ...item } : null;
