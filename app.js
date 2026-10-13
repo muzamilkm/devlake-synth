@@ -1,6 +1,7 @@
 const express = require('express');
 const { createStore } = require('./store');
 const { createItemsRouter } = require('./routes/items');
+const { createUserStore, createUsersRouter } = require('./users');
 
 const app = express();
 
@@ -15,6 +16,10 @@ app.get('/', (req, res) => {
 const itemStore = createStore();
 app.locals.itemStore = itemStore;
 app.use('/items', createItemsRouter(itemStore));
+
+const userStore = createUserStore();
+app.locals.userStore = userStore;
+app.use('/users', createUsersRouter(userStore));
 
 app.use((req, res) => {
   res.status(404).json({ error: 'Route not found' });

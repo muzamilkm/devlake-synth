@@ -51,3 +51,16 @@ In-memory CRUD endpoints (data is lost on restart):
 | PUT | `/items/:id` | Replace an item |
 | PATCH | `/items/:id` | Update `name` and/or `description` |
 | DELETE | `/items/:id` | Delete an item (204) |
+
+## Users API
+
+In-memory user registration (data is lost on restart). Code lives in `users/`.
+
+| Method | Path | Description |
+| --- | --- | --- |
+| POST | `/users/register` | Register a user from `{ email, password }`. Returns 201 with `{ id, email, createdAt }` |
+
+- `email` must be a valid address (max 254 characters); it is trimmed and lowercased, and must be unique (409 otherwise).
+- `password` must be 8-128 characters with a lowercase letter, an uppercase letter, a digit and a special character, must not start or end with whitespace, and must not contain the email.
+- Validation failures return 400 with `{ error: 'Validation failed', details: [{ field, message }] }`.
+- Passwords are stored as salted `scrypt` hashes (Node `crypto`); neither the password nor the hash is ever returned.
