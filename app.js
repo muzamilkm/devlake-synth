@@ -1,6 +1,7 @@
 const express = require('express');
 const { createStore } = require('./store');
 const { createItemsRouter } = require('./routes/items');
+const { allowMethods } = require('./routes/methods');
 const openApiSpec = require('./openapi.json');
 const { createUserStore, createUsersRouter } = require('./users');
 const { notFoundHandler, errorHandler } = require('./errors');
@@ -16,9 +17,12 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok' });
 });
 
+app.all('/health', allowMethods(app));
+
 app.get('/', (req, res) => {
   res.json({ message: 'Welcome to DevLake' });
 });
+app.all('/', allowMethods(app));
 
 app.get('/openapi.json', (req, res) => {
   res.json(openApiSpec);

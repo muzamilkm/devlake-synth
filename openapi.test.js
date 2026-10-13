@@ -41,6 +41,8 @@ function mountPrefix(layer) {
 function servedRoutes(stack, prefix = '') {
   const routes = [];
   for (const layer of stack) {
+    // app.all / router.all catch-alls (allowMethods: 405 and OPTIONS) are not documented operations.
+    if (layer.route && layer.route.stack.some((l) => l.handle.isAllowMethods)) continue;
     if (layer.route) {
       const sub = layer.route.path;
       const path = sub === '/' ? prefix || '/' : prefix + sub;
